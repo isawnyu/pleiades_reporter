@@ -8,12 +8,13 @@
 """
 Report on activity in the Pleaides Zotero Library
 """
+from pleiades_reporter.report import PleiadesReport
 
 
 class ZoteroReporter:
     """
     Capabilities:
-    - Get new bibliographic items since a previous version and produce a list of corresponding reports, one
+    - Get new bibliographic items since a previous version and produce a list of corresponding PleiadesReport objects, one
       per new item.
     """
 
