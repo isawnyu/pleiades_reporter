@@ -6,7 +6,10 @@
 #
 
 """
-Test the pleiades_reporter.zotero module
+Report on activity in the Pleaides Zotero Library
 """
 
-from pleiades_reporter.zotero import ZoteroReporter
+
+class ZoteroReporter:
+    def __init__(self):
+        pass
