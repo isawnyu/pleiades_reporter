@@ -8,6 +8,7 @@
 """
 Define a standard report object
 """
+from pleiades_reporter.text import norm
 
 
 class PleiadesReport:
@@ -22,5 +23,15 @@ class PleiadesReport:
     - associated images and alt text
     """
 
-    def __init__(self):
-        pass
+    def __init__(self, **kwargs):
+        self._title = ""
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+    @property
+    def title(self):
+        return self._title
+
+    @title.setter
+    def title(self, s: str):
+        self._title = norm(s)
