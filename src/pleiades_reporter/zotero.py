@@ -9,6 +9,18 @@
 Report on activity in the Pleaides Zotero Library
 """
 from pleiades_reporter.report import PleiadesReport
+from datetime import timedelta
+from pathlib import Path
+from platformdirs import user_cache_dir
+from urllib.parse import urlparse
+from webiquette.webi import Webi
+
+API_BASE = "https://api.zotero.org"
+HEADERS = {
+    "User-Agent": "PleiadesReporter/0.1 (+https://pleiades.stoa.org)",
+    "Zotero-API-Version": 3,
+}
+LIBRARY_ID = 2533
 
 
 class ZoteroReporter:
@@ -18,5 +30,14 @@ class ZoteroReporter:
       per new item.
     """
 
-    def __init__(self):
-        pass
+    def __init__(
+        self,
+    ):
+        self._webi = Webi(
+            netloc=urlparse(API_BASE).netloc,
+            headers=HEADERS,
+            respect_robots_txt=False,
+            expire_after=timedelta(minutes=7),
+            cache_control=False,
+            cache_dir=str(Path(user_cache_dir("pleiades_reporter"))),
+        )

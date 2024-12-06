@@ -10,3 +10,12 @@ Test the pleiades_reporter.zotero module
 """
 
 from pleiades_reporter.zotero import ZoteroReporter
+
+
+class TestZoteroReporter:
+    @classmethod
+    def setup_class(cls):
+        cls.r = ZoteroReporter()
+
+    def test_init(self):
+        assert self.r._webi is not None
