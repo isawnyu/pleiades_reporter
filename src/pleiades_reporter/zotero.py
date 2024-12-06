@@ -11,5 +11,11 @@ Report on activity in the Pleaides Zotero Library
 
 
 class ZoteroReporter:
+    """
+    Capabilities:
+    - Get new bibliographic items since a previous version and produce a list of corresponding reports, one
+      per new item.
+    """
+
     def __init__(self):
         pass
