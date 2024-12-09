@@ -33,6 +33,11 @@ WEB_CACHE_DURATION = 67  # minutes
 CACHE_DIR_PATH = Path(user_cache_dir("pleiades_reporter"))
 
 
+class ZoteroAPITooManyRequests(Exception):
+    def __init__(self, msg):
+        super().__init__(msg)
+
+
 class ZoteroReporter:
     """
     Capabilities:
@@ -52,6 +57,11 @@ class ZoteroReporter:
             cache_dir=str(CACHE_DIR_PATH),
         )
         self._zot_cache_read()  # sets _last_zot_version and _last_check
+        self._last_web_request = datetime.fromisoformat("1900-01-01T12:12:12+00:00")
+        self._wait_until = (
+            self._last_web_request
+        )  # do not make another request before this datetime
+        self._wait_every_time = 0  # seconds to wait before each check
         self.logger = getLogger("zotero.ZoteroReporter")
 
     def check(
@@ -60,21 +70,37 @@ class ZoteroReporter:
         """
         Check for new Zotero records since last check
         """
+        now = datetime.now(tz=pytz.utc)
+        if self._wait_until > now:
+            return list()
+        if self._wait_every_time:
+            if self._last_web_request + timedelta(seconds=self._wait_every_time) > now:
+                return list()
         if override_last_version:
             old_version = override_last_version
         else:
             old_version = self.last_zot_version
-        new_version = self._check_for_latest_version(reference_zot_version=old_version)
+        try:
+            new_version = self._check_for_latest_version(
+                reference_zot_version=old_version
+            )
+        except ZoteroAPITooManyRequests as err:
+            self.logger.error(str(err))
+            return list()
         if new_version != old_version:
             if override_last_check:
                 old_datetime = override_last_check
             else:
                 old_datetime = self.last_check
-            new_records = self._zot_get_new_records(
-                since_version=old_version,
-                since_datetime=old_datetime,
-                bypass_cache=True,
-            )
+            try:
+                new_records = self._zot_get_new_records(
+                    since_version=old_version,
+                    since_datetime=old_datetime,
+                    bypass_cache=True,
+                )
+            except ZoteroAPITooManyRequests as err:
+                self.logger.error(str(err))
+                return list()
             now = datetime.now(tz=pytz.utc)
             self.last_zot_version = new_version
             self.last_check = now
@@ -148,16 +174,31 @@ class ZoteroReporter:
         """
         Parse the various ways Zotero can tell us to slow down and adjust own config to comply
         """
+
+        # backoff
+        # If the API servers are overloaded, the API may include a Backoff: <seconds> HTTP header in responses, indicating that the client should perform the minimum number of requests necessary to maintain data consistency and then refrain from making further requests for the number of seconds indicated.
         try:
             backoff = r.headers["backoff"]
         except KeyError:
             pass
         else:
-            # TBD wait backoff seconds
-            raise NotImplementedError(f"Got response header backoff: {backoff}")
+            self._wait_until = datetime.now(tz=pytz.utc) + timedelta(seconds=backoff)
+
+        # 429 + retry after
+        # If a client has made too many requests within a given time period or is making too many concurrent requests, the API may return 429 Too Many Requests with a Retry-After: <seconds> header. Clients receiving a 429 should wait at least the number of seconds indicated in the header before making further requests. They should also reduce their overall request rate and/or concurrency to avoid repeatedly getting 429s, which may result in stricter throttling or temporary blocks.
         if r.status_code == 429:
-            # TBD: Get value of Retry-After: <seconds> header and wait at least the number of seconds indicated in the header before making further requests.
-            raise NotImplementedError(f"Got status code 429 from Zotero API")
+            try:
+                retry_after = r.headers["retry-after"]
+            except KeyError:
+                self._wait_every_time += 1
+            else:
+                self._wait_every_time = retry_after
+            self._wait_until = datetime.now(tz=pytz.utc) + timedelta(
+                seconds=self._wait_every_time
+            )
+            raise ZoteroAPITooManyRequests(
+                f"Retry-After: {self._wait_every_time} (uri: {r.url})"
+            )
 
     def _zot_cache_read(self):
         """
@@ -201,19 +242,30 @@ class ZoteroReporter:
         r = self._webi.head(
             uri, additional_headers=additional_headers, bypass_cache=bypass_cache
         )
+        self._last_web_request = datetime.now(tz=pytz.utc)
         self.logger.debug(
             f"_zot_head: response headers ({pformat(r.headers, indent=4)}"
         )
         self._parse_zot_response_for_backoff(r)
         return r
 
-    def _zot_get(self, uri, additional_headers, bypass_cache: bool = True) -> Response:
+    def _zot_get(
+        self,
+        uri,
+        additional_headers: dict = dict(),
+        bypass_cache: bool = True,
+        params: dict = dict(),
+    ) -> Response:
         """
         Issue an HTTP GET request to the Zotero API
         """
         r = self._webi.get(
-            uri, additional_headers=additional_headers, bypass_cache=bypass_cache
+            uri,
+            additional_headers=additional_headers,
+            bypass_cache=bypass_cache,
+            params=params,
         )
+        self._last_web_request = datetime.now(tz=pytz.utc)
         self.logger.debug(f"_zot_get: response headers ({pformat(r.headers, indent=4)}")
         self._parse_zot_response_for_backoff(r)
         return r
@@ -226,10 +278,10 @@ class ZoteroReporter:
         """
         uri = "/".join([API_BASE, "groups", LIBRARY_ID, "items", "top"])
         params = {"since": since_version, "format": "json", "includeTrashed": "0"}
-        r = self._webi.get(uri, bypass_cache=bypass_cache, params=params)
+        # r = self._webi.get(uri, bypass_cache=bypass_cache, params=params)
+        r = self._zot_get(uri=uri, bypass_cache=bypass_cache, params=params)
         if r.status_code == 200:
             modified = r.json()
-            self.logger.debug(f"_zot_get_modified_records: {len(modified)}")
             return modified
         else:
             self._handle_zot_response_codes(r)
