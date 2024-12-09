@@ -165,11 +165,20 @@ class ZoteroReporter:
         - last version checked
         - last datetime checked
         """
-        with open(CACHE_DIR_PATH / "zotero_metadata.json", "r", encoding="utf-8") as f:
-            d = json.load(f)
-        del f
-        self._last_zot_version = d["last_version_checked"]
-        self._last_check = datetime.fromisoformat(d["last_time_checked"])
+        try:
+            with open(
+                CACHE_DIR_PATH / "zotero_metadata.json", "r", encoding="utf-8"
+            ) as f:
+                d = json.load(f)
+            del f
+        except FileNotFoundError:
+            # write a version and date that will ensure updates must be checked
+            self._last_zot_version = "38632"
+            self._last_check = datetime.fromisoformat("2024-01-01T12:12:12+00:00")
+            self._zot_cache_write()
+        else:
+            self._last_zot_version = d["last_version_checked"]
+            self._last_check = datetime.fromisoformat(d["last_time_checked"])
 
     def _zot_cache_write(self):
         """
