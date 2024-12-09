@@ -10,11 +10,13 @@ Report on activity in the Pleaides Zotero Library
 """
 from pleiades_reporter.report import PleiadesReport
 from datetime import datetime, timedelta
+import json
 from logging import getLogger
 from os import environ
 from pathlib import Path
 from platformdirs import user_cache_dir
 from pprint import pprint, pformat
+import pytz
 from requests import Response
 from urllib.parse import urlparse
 from webiquette.webi import Webi
@@ -28,6 +30,7 @@ HEADERS = {
     "Zotero-API-Key": API_KEY,
 }
 WEB_CACHE_DURATION = 67  # minutes
+CACHE_DIR_PATH = Path(user_cache_dir("pleiades_reporter"))
 
 
 class ZoteroReporter:
@@ -46,17 +49,57 @@ class ZoteroReporter:
             respect_robots_txt=False,
             expire_after=timedelta(minutes=WEB_CACHE_DURATION),
             cache_control=False,
-            cache_dir=str(Path(user_cache_dir("pleiades_reporter"))),
+            cache_dir=str(CACHE_DIR_PATH),
         )
-        # TBD: get last version number and datetime checked and known keys from cache
-        self._last_zot_version = "38632"
-        self._last_check = datetime(year=1900, month=1, day=1)
-        self._known_zot_keys = set()
+        self._zot_cache_read()  # sets _last_zot_version and _last_check
         self.logger = getLogger("zotero.ZoteroReporter")
 
+    def check(
+        self, override_last_version: str = "", override_last_check: datetime = None
+    ):
+        """
+        Check for new Zotero records since last check
+        """
+        if override_last_version:
+            old_version = override_last_version
+        else:
+            old_version = self.last_zot_version
+        new_version = self._check_for_latest_version(reference_zot_version=old_version)
+        if new_version != old_version:
+            if override_last_check:
+                old_datetime = override_last_check
+            else:
+                old_datetime = self.last_check
+            new_records = self._zot_get_new_records(
+                since_version=old_version,
+                since_datetime=old_datetime,
+                bypass_cache=True,
+            )
+            now = datetime.now(tz=pytz.utc)
+            self.last_zot_version = new_version
+            self.last_check = now
+        else:
+            new_records = list()
+        self.logger.debug(f"Got {len(new_records)}")
+        return new_records
+
     @property
-    def last_zot_version(self):
+    def last_check(self) -> datetime:
+        return self._last_check
+
+    @last_check.setter
+    def last_check(self, val: datetime):
+        self._last_check = val
+        self._zot_cache_write()
+
+    @property
+    def last_zot_version(self) -> str:
         return self._last_zot_version
+
+    @last_zot_version.setter
+    def last_zot_version(self, val: str):
+        self._last_zot_version = val
+        self._zot_cache_write()
 
     def _check_for_latest_version(
         self, bypass_cache=True, reference_zot_version: str = ""
@@ -70,6 +113,7 @@ class ZoteroReporter:
         r = self._zot_head(
             uri=uri, additional_headers=headers, bypass_cache=bypass_cache
         )
+
         self._parse_zot_response_for_backoff(r)
         return r.headers["Last-Modified-Version"]
 
@@ -115,6 +159,32 @@ class ZoteroReporter:
             # TBD: Get value of Retry-After: <seconds> header and wait at least the number of seconds indicated in the header before making further requests.
             raise NotImplementedError(f"Got status code 429 from Zotero API")
 
+    def _zot_cache_read(self):
+        """
+        Read critical Zotero info from the local cache
+        - last version checked
+        - last datetime checked
+        """
+        with open(CACHE_DIR_PATH / "zotero_metadata.json", "r", encoding="utf-8") as f:
+            d = json.load(f)
+        del f
+        self._last_zot_version = d["last_version_checked"]
+        self._last_check = datetime.fromisoformat(d["last_time_checked"])
+
+    def _zot_cache_write(self):
+        """
+        Write critical Zotero info to the local cache
+        - last version checked
+        - last datetime checked
+        """
+        d = {
+            "last_version_checked": self._last_zot_version,
+            "last_time_checked": self._last_check.isoformat(),
+        }
+        with open(CACHE_DIR_PATH / "zotero_metadata.json", "w", encoding="utf-8") as f:
+            json.dump(d, f)
+        del f
+
     def _zot_head(self, uri, additional_headers, bypass_cache) -> Response:
         """
         Issue an HTTP HEAD request to the Zotero API
@@ -128,7 +198,7 @@ class ZoteroReporter:
         self._parse_zot_response_for_backoff(r)
         return r
 
-    def _zot_get(self, uri, additional_headers, bypass_cache) -> Response:
+    def _zot_get(self, uri, additional_headers, bypass_cache: bool = True) -> Response:
         """
         Issue an HTTP GET request to the Zotero API
         """
@@ -139,7 +209,9 @@ class ZoteroReporter:
         self._parse_zot_response_for_backoff(r)
         return r
 
-    def _zot_get_modified_records(self, since_version: str, bypass_cache: bool) -> list:
+    def _zot_get_modified_records(
+        self, since_version: str, bypass_cache: bool = True
+    ) -> list:
         """
         Get a list of records for top-level items modified since since_version
         """
@@ -155,7 +227,7 @@ class ZoteroReporter:
             return list()
 
     def _zot_get_new_records(
-        self, since_version: str, since_datetime: datetime, bypass_cache: bool
+        self, since_version: str, since_datetime: datetime, bypass_cache: bool = True
     ) -> list:
         """
         Get a list of records for top-level items that have been newly added since version and datetime

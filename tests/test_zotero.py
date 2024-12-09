@@ -61,3 +61,19 @@ class TestZoteroReporter:
             since_version=old_version, since_datetime=old_datetime, bypass_cache=True
         )
         assert len(new) > 0
+
+    def test_check(self):
+        old_version = "38632"
+        old_datetime = datetime(
+            year=2024,
+            month=12,
+            day=6,
+            hour=12,
+            minute=12,
+            second=12,
+            tzinfo=pytz.utc,
+        )
+        new = self.r.check(
+            override_last_check=old_datetime, override_last_version=old_version
+        )
+        assert len(new) > 0
