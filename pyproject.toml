@@ -39,6 +39,7 @@ dependencies = [
 #  "shapely",
   "platformdirs",
 #  "python-slugify",
+  "pytz",
   "textnorm",
   "validators",
   "webiquette @ https://github.com/isawnyu/webiquette/archive/refs/heads/main.zip"
@@ -49,4 +50,4 @@ dependencies = [
 # "Bug Tracker" = "https://github.com/pypa/sampleproject/issues"
 [tool.pytest.ini_options]
 log_cli = true
-log_cli_level = "INFO"
+log_cli_level = "DEBUG"
