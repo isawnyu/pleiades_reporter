@@ -25,6 +25,7 @@ class PleiadesReport:
 
     def __init__(self, **kwargs):
         self._title = ""
+        self._summary = ""
         for k, v in kwargs.items():
             setattr(self, k, v)
 
@@ -35,3 +36,11 @@ class PleiadesReport:
     @title.setter
     def title(self, s: str):
         self._title = norm(s)
+
+    @property
+    def summary(self):
+        return self._summary
+
+    @summary.setter
+    def summary(self, s: str):
+        self._summary = norm(s)

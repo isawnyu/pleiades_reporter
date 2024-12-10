@@ -25,3 +25,16 @@ class TestPleiadesReport:
         t = "Academicorum reliquiae cum Lucullo"
         r.title = t
         assert r.title == t
+
+    def test_init_summary(self):
+        s = "Eum voluptatem illum sit minus."
+        r = PleiadesReport(summary=s)
+        assert r.summary == s
+
+    def test_change_summary(self):
+        s = "Eum voluptatem illum sit minus."
+        r = PleiadesReport(summary=s)
+        assert r.summary == s
+        s = "Aspernatur id molestias deleniti eius quis qui corporis veritatis."
+        r.summary = s
+        assert r.summary == s
