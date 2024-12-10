@@ -86,7 +86,7 @@ class TestZoteroReporter:
             params={"itemKey": "9CU8QAI9", "format": "json"},
         )
         if response.status_code == 200:
-            report = self.r._make_report(response.json()[0]["data"])
+            report = self.r._make_report(response.json()[0])
         assert report.title == "New in the Pleiades Zotero Library: eCUT"
         assert report.summary == "Electronic Corpus of Urartian Texts (eCUT) Project"
         assert report.text == (

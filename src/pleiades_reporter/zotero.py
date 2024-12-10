@@ -191,10 +191,17 @@ class ZoteroReporter:
             s = response.text.replace('<?xml version="1.0"?>\n', "")
             md = markdownify(s, strip=["div"])
             self.logger.debug(f"md: '{md}'")
+        else:
+            md = ""
+
+        try:
+            st = zot_rec["data"]["shortTitle"]
+        except KeyError:
+            raise RuntimeError(pformat(zot_rec, indent=4))
 
         report = PleiadesReport(
-            title=f"New in the Pleiades Zotero Library: {zot_rec['shortTitle']}",
-            summary=zot_rec["title"],
+            title=f"New in the Pleiades Zotero Library: {st}",
+            summary=zot_rec["data"]["title"],
             markdown=md,
         )
         return report
