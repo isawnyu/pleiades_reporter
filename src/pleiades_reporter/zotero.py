@@ -12,6 +12,7 @@ from pleiades_reporter.report import PleiadesReport
 from datetime import datetime, timedelta
 import json
 from logging import getLogger
+from markdownify import markdownify
 from os import environ
 from pathlib import Path
 from platformdirs import user_cache_dir
@@ -66,9 +67,9 @@ class ZoteroReporter:
 
     def check(
         self, override_last_version: str = "", override_last_check: datetime = None
-    ):
+    ) -> list:
         """
-        Check for new Zotero records since last check
+        Check for new Zotero records since last check and return a list of reports
         """
         now = datetime.now(tz=pytz.utc)
         if self._wait_until > now:
@@ -107,7 +108,7 @@ class ZoteroReporter:
         else:
             new_records = list()
         self.logger.debug(f"Got {len(new_records)}")
-        return new_records
+        return [self._make_report(rec) for rec in new_records]
 
     @property
     def last_check(self) -> datetime:
@@ -169,6 +170,32 @@ class ZoteroReporter:
                     f"Unhandled Zotero HTTP status code {code}" + addendum
                 )
             raise RuntimeError(msg + addendum)
+
+    def _make_report(self, zot_rec: dict) -> PleiadesReport:
+        """
+        Create a Pleiades report about a zotero record
+        """
+        self.logger.debug(pformat(zot_rec, indent=4))
+
+        # get citation
+        response = self._zot_get(
+            uri="https://api.zotero.org/groups/2533/items",
+            bypass_cache=False,
+            params={
+                "itemKey": "9CU8QAI9",
+                "format": "bib",
+                "style": "chicago-fullnote-bibliography",
+                "linkwrap": "1",
+            },
+        )
+        if response.status_code == 200:
+            md = markdownify(response.text, strip=["div"])
+
+        report = PleiadesReport(
+            title=f"New in the Pleiades Zotero Library: {zot_rec['shortTitle']}",
+            summary=zot_rec["title"],
+        )
+        return report
 
     def _parse_zot_response_for_backoff(self, r: Response):
         """

@@ -31,6 +31,7 @@ dependencies = [
   #"iteration_utilities",
 #  "fiona",
 #  "jsonlines",
+  "markdownify",
   #"pleiades_entities @ file:///Users/paregorios/Documents/files/P/pleiades_entities",
 #  "pleiades_local @ file:///Users/paregorios/Documents/files/P/pleiades_local",
   "pytest",

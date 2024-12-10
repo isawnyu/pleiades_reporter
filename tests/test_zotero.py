@@ -77,3 +77,15 @@ class TestZoteroReporter:
             override_last_check=old_datetime, override_last_version=old_version
         )
         assert len(new) > 0
+
+    def test_make_report(self):
+        # https://www.zotero.org/groups/2533/items/9CU8QAI9
+        response = self.r._zot_get(
+            uri="https://api.zotero.org/groups/2533/items",
+            bypass_cache=False,
+            params={"itemKey": "9CU8QAI9", "format": "json"},
+        )
+        if response.status_code == 200:
+            report = self.r._make_report(response.json()[0]["data"])
+        assert report.title == "New in the Pleiades Zotero Library: eCUT"
+        assert report.summary == "Electronic Corpus of Urartian Texts (eCUT) Project"
