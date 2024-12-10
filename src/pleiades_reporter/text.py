@@ -12,6 +12,8 @@ Manipulate text strings
 import textnorm
 
 
-def norm(s: str) -> str:
+def norm(s: str, preserve: list = list(), trim: bool = True) -> str:
     """Normalize unicode and whitespace in a string."""
-    return textnorm.normalize_space(textnorm.normalize_unicode(s))
+    return textnorm.normalize_space(
+        textnorm.normalize_unicode(s), preserve=preserve, trim=trim
+    )

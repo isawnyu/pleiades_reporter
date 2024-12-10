@@ -185,15 +185,17 @@ class ZoteroReporter:
                 "itemKey": "9CU8QAI9",
                 "format": "bib",
                 "style": "chicago-fullnote-bibliography",
-                "linkwrap": "1",
             },
         )
         if response.status_code == 200:
-            md = markdownify(response.text, strip=["div"])
+            s = response.text.replace('<?xml version="1.0"?>\n', "")
+            md = markdownify(s, strip=["div"])
+            self.logger.debug(f"md: '{md}'")
 
         report = PleiadesReport(
             title=f"New in the Pleiades Zotero Library: {zot_rec['shortTitle']}",
             summary=zot_rec["title"],
+            markdown=md,
         )
         return report
 

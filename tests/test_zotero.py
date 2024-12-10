@@ -89,3 +89,15 @@ class TestZoteroReporter:
             report = self.r._make_report(response.json()[0]["data"])
         assert report.title == "New in the Pleiades Zotero Library: eCUT"
         assert report.summary == "Electronic Corpus of Urartian Texts (eCUT) Project"
+        assert report.text == (
+            "Electronic Corpus of Urartian Texts (ECUT) Project. "
+            "Munich: Ludwig-Maximilians-Universität München, Historisches "
+            "Seminar - Alte Geschichte, 2016. "
+            "http://oracc.museum.upenn.edu/ecut/index.html."
+        )
+        assert report.markdown == (
+            "*Electronic Corpus of Urartian Texts (ECUT) Project*. "
+            "Munich: Ludwig-Maximilians-Universität München, Historisches "
+            "Seminar - Alte Geschichte, 2016. "
+            "http://oracc.museum.upenn.edu/ecut/index.html."
+        )

@@ -8,7 +8,11 @@
 """
 Define a standard report object
 """
+import logging
+from mdclense.parser import MarkdownParser
 from pleiades_reporter.text import norm
+
+mdparser = MarkdownParser()
 
 
 class PleiadesReport:
@@ -26,6 +30,8 @@ class PleiadesReport:
     def __init__(self, **kwargs):
         self._title = ""
         self._summary = ""
+        self._text = ""
+        self._markdown = ""
         for k, v in kwargs.items():
             setattr(self, k, v)
 
@@ -44,3 +50,33 @@ class PleiadesReport:
     @summary.setter
     def summary(self, s: str):
         self._summary = norm(s)
+
+    @property
+    def text(self):
+        if self._text:
+            return self._text
+        elif self._markdown:
+            return norm(mdparser.parse(self._markdown))
+        else:
+            return ""
+
+    @text.setter
+    def text(self, s: str):
+        self._text = norm(s)
+
+    @property
+    def markdown(self):
+        return self._markdown
+
+    @markdown.setter
+    def markdown(self, s: str):
+        logger = logging.getLogger("markdown")
+        logger.debug(f"s: '{s}'")
+        s_clean = norm(s, preserve=["\n"], trim=False)
+        logger.debug(f"norm(s): '{s_clean}'")
+        while s_clean[0] == "\n":
+            s_clean = s_clean[1:]
+        while s_clean[-1] == "\n":
+            s_clean = s_clean[:-1]
+        logger.debug(f"s_clean final: '{s_clean}'")
+        self._markdown = s_clean
