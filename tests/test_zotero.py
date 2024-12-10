@@ -94,10 +94,12 @@ class TestZoteroReporter:
             "Munich: Ludwig-Maximilians-Universität München, Historisches "
             "Seminar - Alte Geschichte, 2016. "
             "http://oracc.museum.upenn.edu/ecut/index.html."
+            "\n\nBibliographic record in Zotero: https://www.zotero.org/groups/2533/pleiades/items/9CU8QAI9."
         )
         assert report.markdown == (
             "*Electronic Corpus of Urartian Texts (ECUT) Project*. "
             "Munich: Ludwig-Maximilians-Universität München, Historisches "
             "Seminar - Alte Geschichte, 2016. "
             "http://oracc.museum.upenn.edu/ecut/index.html."
+            "\n\nBibliographic record in Zotero: https://www.zotero.org/groups/2533/pleiades/items/9CU8QAI9."
         )

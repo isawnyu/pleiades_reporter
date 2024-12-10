@@ -177,18 +177,23 @@ class ZoteroReporter:
         """
         self.logger.debug(pformat(zot_rec, indent=4))
 
+        zot_key = zot_rec["data"]["key"]
+
         # get citation
         response = self._zot_get(
             uri="https://api.zotero.org/groups/2533/items",
             bypass_cache=False,
             params={
-                "itemKey": "9CU8QAI9",
+                "itemKey": zot_key,
                 "format": "bib",
                 "style": "chicago-fullnote-bibliography",
             },
         )
         if response.status_code == 200:
             s = response.text.replace('<?xml version="1.0"?>\n', "")
+            s = s + (
+                f"  \nBibliographic record in Zotero: https://www.zotero.org/groups/2533/pleiades/items/{zot_key}."
+            )
             md = markdownify(s, strip=["div"])
             self.logger.debug(f"md: '{md}'")
         else:

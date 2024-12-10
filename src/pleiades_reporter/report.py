@@ -56,7 +56,7 @@ class PleiadesReport:
         if self._text:
             return self._text
         elif self._markdown:
-            return norm(mdparser.parse(self._markdown))
+            return norm(mdparser.parse(self._markdown), preserve=["\n"])
         else:
             return ""
 
