@@ -8,6 +8,8 @@
 """
 Define a standard report object
 """
+from datetime import datetime
+import pytz
 import logging
 from mdclense.parser import MarkdownParser
 from pleiades_reporter.text import norm
@@ -25,6 +27,7 @@ class PleiadesReport:
     - markdown version
     - hash tags
     - associated images and alt text
+    - when (date of the reported change/event)
     """
 
     def __init__(self, **kwargs):
@@ -32,6 +35,7 @@ class PleiadesReport:
         self._summary = ""
         self._text = ""
         self._markdown = ""
+        self._when = datetime.now(tz=pytz.utc)
         for k, v in kwargs.items():
             setattr(self, k, v)
 
@@ -80,3 +84,16 @@ class PleiadesReport:
             s_clean = s_clean[:-1]
         logger.debug(f"s_clean final: '{s_clean}'")
         self._markdown = s_clean
+
+    @property
+    def when(self):
+        return self._when
+
+    @when.setter
+    def when(self, dt: datetime | str):
+        if isinstance(dt, datetime):
+            self._when = dt
+        elif isinstance(dt, str):
+            self._when = datetime.fromisoformat(dt)
+        else:
+            raise TypeError(f"Expected datetime or str, got {type(dt)}")

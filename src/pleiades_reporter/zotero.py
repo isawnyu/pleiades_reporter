@@ -88,7 +88,7 @@ class ZoteroReporter:
         except ZoteroAPITooManyRequests as err:
             self.logger.error(str(err))
             return list()
-        if new_version != old_version:
+        if new_version is not None and new_version != old_version:
             if override_last_check:
                 old_datetime = override_last_check
             else:
@@ -140,9 +140,15 @@ class ZoteroReporter:
         r = self._zot_head(
             uri=uri, additional_headers=headers, bypass_cache=bypass_cache
         )
-
         self._parse_zot_response_for_backoff(r)
-        return r.headers["Last-Modified-Version"]
+        if r.status_code == 304:
+            # no change
+            return reference_zot_version
+        try:
+            return r.headers["Last-Modified-Version"]
+        except KeyError as err:
+            err.add_note = pformat(r, indent=4)
+            raise err
 
     def _handle_zot_response_codes(self, r: Response):
         bad_code_names = {
@@ -208,6 +214,7 @@ class ZoteroReporter:
             title=f"New in the Pleiades Zotero Library: {st}",
             summary=zot_rec["data"]["title"],
             markdown=md,
+            when=zot_rec["data"]["dateAdded"],
         )
         return report
 
