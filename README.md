@@ -1,6 +1,8 @@
 # Pleiades Reporter
 
-Create and disseminate reports on Pleiades developments.
+Create and disseminate social media posts on Pleiades activity. 
+
+Currently designed to post to the Pleiades account on botsinbox.net.
 
 ## Roadmap:
 
@@ -10,7 +12,7 @@ Create and disseminate reports on Pleiades developments.
     - [x] Handle Zotero API backoff and retry after instructions
     - [x] Create formatted reports for each new Zotero record (including citation)
 
-- [x] Create a script to run checks periodically
+- [x] Create a script to run checks periodically (see now `scripts/looper.py`)
 
 - [x] Create a textual UI to the check process to control it and review possible reports
 
