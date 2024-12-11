@@ -32,6 +32,7 @@ dependencies = [
 #  "fiona",
 #  "jsonlines",
   "markdownify",
+  "Mastodon.py",
   "mdclense",
   #"pleiades_entities @ file:///Users/paregorios/Documents/files/P/pleiades_entities",
 #  "pleiades_local @ file:///Users/paregorios/Documents/files/P/pleiades_local",

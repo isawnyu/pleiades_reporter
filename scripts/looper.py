@@ -13,11 +13,15 @@ from airtight.cli import configure_commandline
 from datetime import datetime, timedelta
 from itertools import chain
 import logging
+from mastodon import Mastodon
+from os import environ
+from pathlib import Path
 from pleiades_reporter.zotero import ZoteroReporter
 from pleiades_reporter.text import norm
+from pprint import pformat
 from time import sleep
 
-
+bot_api = None
 logger = logging.getLogger(__name__)
 
 DEFAULT_DATETIME_FORMAT = "%Y-%m-%d %H:%I"
@@ -70,6 +74,8 @@ def get_user_disposition(new_reports: list) -> bool:
         exit()
     if cmd_lower.startswith("preview "):
         return preview_reports(" ".join(cmd_lower.split()[1:]), new_reports)
+    if cmd_lower.startswith("publish ") or cmd_lower.startswith("post "):
+        return publish_reports(" ".join(cmd_lower.split()[1:]), new_reports)
 
 
 def preview_reports(predicate: str, new_reports: list) -> bool:
@@ -84,11 +90,35 @@ def preview_reports(predicate: str, new_reports: list) -> bool:
     return True
 
 
+def publish_reports(predicate: str, new_reports: list) -> bool:
+    """
+    Send reports to social media
+    """
+    global bot_api
+
+    items = rangeString(predicate)
+    for i in [int(n) - 1 for n in list(items)]:
+        status = bot_api.status_post(
+            status="\n\n".join([new_reports[i].title, str(new_reports[i])]),
+            language="en",
+        )
+        logger.debug(pformat(status, indent=4))
+    return False
+
+
 def main(**kwargs):
     """
     main function
     """
+    global bot_api
+
     # logger = logging.getLogger(sys._getframe().f_code.co_name)
+    access_token = environ["BOTSINBOX_ACCESS_TOKEN"]
+    bot_api = Mastodon(
+        access_token=access_token,
+        api_base_url="https://botsinbox.net",
+        version_check_mode="none",
+    )
     reporters = {"zotero": ZoteroReporter()}
     periods = {"zotero": 180}
     dawn_of_time = datetime(year=1970, month=1, day=1)
@@ -99,6 +129,7 @@ def main(**kwargs):
     while True:
         try:
             for r_key, reporter in reporters.items():
+
                 if datetime.now() - last_execution[r_key] > timedelta(
                     seconds=periods[r_key]
                 ):
