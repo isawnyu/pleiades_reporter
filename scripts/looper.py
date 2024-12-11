@@ -11,9 +11,12 @@ Python 3 script template (changeme)
 
 from airtight.cli import configure_commandline
 from datetime import datetime, timedelta
+from itertools import chain
 import logging
 from pleiades_reporter.zotero import ZoteroReporter
+from pleiades_reporter.text import norm
 from time import sleep
+
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +45,45 @@ POSITIONAL_ARGUMENTS = [
 ]
 
 
+def rangeString(commaString):
+    """
+    Code by ninjagecko on stackoverflow:
+    https://stackoverflow.com/questions/6405208/how-to-convert-numeric-string-ranges-to-a-list-in-python#answer-6405816
+    """
+
+    def hyphenRange(hyphenString):
+        x = [int(x) for x in hyphenString.split("-")]
+        return range(x[0], x[-1] + 1)
+
+    return chain(*[hyphenRange(r) for r in commaString.split(",")])
+
+
+def get_user_disposition(new_reports: list) -> bool:
+    """
+    Solicit and process user input at the command line.
+    """
+    cmd = norm(input("cmd>>> "))
+    if not cmd:
+        return
+    cmd_lower = cmd.lower()
+    if cmd_lower in ["q", "quit", "exit"]:
+        exit()
+    if cmd_lower.startswith("preview "):
+        return preview_reports(" ".join(cmd_lower.split()[1:]), new_reports)
+
+
+def preview_reports(predicate: str, new_reports: list) -> bool:
+    """
+    Preview reports selected by user.
+    """
+    items = rangeString(predicate)
+    for i in [int(n) - 1 for n in list(items)]:
+        print("-" * 72)
+        print("\n\n".join([new_reports[i].title, str(new_reports[i])]))
+    print("-" * 72)
+    return True
+
+
 def main(**kwargs):
     """
     main function
@@ -64,19 +106,19 @@ def main(**kwargs):
                     reports.extend(reporter.check())
             if len(reports) > report_count:
                 print(f"{len(reports) - report_count} new reports have been generated:")
-                for i, report in enumerate(
-                    sorted(
-                        reports[report_count : len(reports)],
-                        key=lambda r: r.when,
-                        reverse=True,
-                    )
-                ):
+                new_reports = sorted(
+                    reports[report_count : len(reports)],
+                    key=lambda r: r.when,
+                    reverse=True,
+                )
+                for i, report in enumerate(new_reports):
                     print(
                         f"{i+1}. {report.title} ({report.when.strftime(DEFAULT_DATETIME_FORMAT)})"
                     )
-                # make decisions about what to publish here
-                # TBD
                 report_count = len(reports)
+                another_cmd = True
+                while another_cmd:
+                    another_cmd = get_user_disposition(new_reports)
             print(
                 f"Sleeping for {LOOP_PERIOD} seconds (i.e., until {(datetime.now() + timedelta(seconds=LOOP_PERIOD)).strftime(DEFAULT_DATETIME_FORMAT)})"
             )

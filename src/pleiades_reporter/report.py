@@ -97,3 +97,6 @@ class PleiadesReport:
             self._when = datetime.fromisoformat(dt)
         else:
             raise TypeError(f"Expected datetime or str, got {type(dt)}")
+
+    def __str__(self):
+        return self.text
