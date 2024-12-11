@@ -24,7 +24,7 @@ from time import sleep
 bot_api = None
 logger = logging.getLogger(__name__)
 
-DEFAULT_DATETIME_FORMAT = "%Y-%m-%d %H:%I"
+DEFAULT_DATETIME_FORMAT = "%Y-%m-%d %H:%M"
 DEFAULT_LOG_LEVEL = logging.WARNING
 OPTIONAL_ARGUMENTS = [
     [
