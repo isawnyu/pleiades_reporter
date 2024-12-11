@@ -17,6 +17,7 @@ from time import sleep
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_DATETIME_FORMAT = "%Y-%m-%d %H:%I"
 DEFAULT_LOG_LEVEL = logging.WARNING
 OPTIONAL_ARGUMENTS = [
     [
@@ -63,17 +64,21 @@ def main(**kwargs):
                     reports.extend(reporter.check())
             if len(reports) > report_count:
                 print(f"{len(reports) - report_count} new reports have been generated:")
-                for report in sorted(
-                    reports[report_count : len(reports)],
-                    key=lambda r: r.when,
-                    reverse=True,
+                for i, report in enumerate(
+                    sorted(
+                        reports[report_count : len(reports)],
+                        key=lambda r: r.when,
+                        reverse=True,
+                    )
                 ):
-                    print(f"- {report.title} ({report.when.isoformat()})")
+                    print(
+                        f"{i+1}. {report.title} ({report.when.strftime(DEFAULT_DATETIME_FORMAT)})"
+                    )
                 # make decisions about what to publish here
                 # TBD
                 report_count = len(reports)
             print(
-                f"Sleeping for {LOOP_PERIOD} seconds (i.e., until {(datetime.now() + timedelta(seconds=LOOP_PERIOD)).isoformat()})"
+                f"Sleeping for {LOOP_PERIOD} seconds (i.e., until {(datetime.now() + timedelta(seconds=LOOP_PERIOD)).strftime(DEFAULT_DATETIME_FORMAT)})"
             )
             sleep(LOOP_PERIOD)
         except KeyboardInterrupt:
