@@ -35,13 +35,21 @@ class Channel:
 
     def post_next(self, count: int = 1):
         """Post the next `count` items in the queue"""
+        results = list()
         for i in range(0, count):
             try:
                 post = self.queue.pop()
             except IndexError:
                 break  # queue is empty
             else:
-                result = self._post(post)
+                results.append(self._post(post))
+        if results:
+            c = len(results)
+            self.logger.info(
+                f"Posted {c} report{("", "s")[c>1]}. Items still in queue: {len(self.queue)}."
+            )
+        else:
+            self.logger.info(f"Queue is empty; nothing to post.")
 
     def post_now(self, post):
         """Post this post immediately."""
