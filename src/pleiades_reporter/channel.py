@@ -9,11 +9,14 @@
 Implement the Channel base class for queued dissemination channels
 """
 from collections import deque
+from logging import getLogger
 
 
 class Channel:
     def __init__(self):
         self.queue = deque()
+        if self.logger is None:
+            self.logger = getLogger("Channel")
 
     def clear(self):
         """Remove all content from the queue"""
@@ -38,11 +41,11 @@ class Channel:
             except IndexError:
                 break  # queue is empty
             else:
-                self._post(post)
+                result = self._post(post)
 
     def post_now(self, post):
         """Post this post immediately."""
-        self._post(post)
+        result = self._post(post)
 
     def _post(self, post):
         """Override this method in subclass to handle specific channel API"""

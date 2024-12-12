@@ -17,12 +17,12 @@ from mastodon import Mastodon
 from os import environ
 from pathlib import Path
 from pleiades_reporter.go_to_social import GoToSocialChannel
+from pleiades_reporter.post import Post
 from pleiades_reporter.zotero import ZoteroReporter
 from pleiades_reporter.text import norm
 from pprint import pformat
 from time import sleep
 
-bot_api = None
 logger = logging.getLogger(__name__)
 
 DEFAULT_DATETIME_FORMAT = "%Y-%m-%d %H:%M"
@@ -63,7 +63,7 @@ def rangeString(commaString):
     return chain(*[hyphenRange(r) for r in commaString.split(",")])
 
 
-def get_user_disposition(new_reports: list) -> bool:
+def get_user_disposition(new_reports: list, channels: dict) -> bool:
     """
     Solicit and process user input at the command line.
     """
@@ -75,8 +75,11 @@ def get_user_disposition(new_reports: list) -> bool:
         exit()
     if cmd_lower.startswith("preview "):
         return preview_reports(" ".join(cmd_lower.split()[1:]), new_reports)
-    if cmd_lower.startswith("publish ") or cmd_lower.startswith("post "):
-        return publish_reports(" ".join(cmd_lower.split()[1:]), new_reports)
+    elif cmd_lower.startswith("publish ") or cmd_lower.startswith("post "):
+        return publish_reports(" ".join(cmd_lower.split()[1:]), new_reports, channels)
+    else:
+        print("Invalid command.")
+        return True
 
 
 def preview_reports(predicate: str, new_reports: list) -> bool:
@@ -91,19 +94,15 @@ def preview_reports(predicate: str, new_reports: list) -> bool:
     return True
 
 
-def publish_reports(predicate: str, new_reports: list) -> bool:
+def publish_reports(predicate: str, new_reports: list, channels: dict) -> bool:
     """
     Send reports to social media
     """
-    global bot_api
-
     items = rangeString(predicate)
-    for i in [int(n) - 1 for n in list(items)]:
-        status = bot_api.status_post(
-            status="\n\n".join([new_reports[i].title, str(new_reports[i])]),
-            language="en",
-        )
-        logger.debug(pformat(status, indent=4))
+    these_reports = [new_reports[i] for i in [int(n) - 1 for n in list(items)]]
+    posts = [Post(body="\n\n".join([r.title, str(r)])) for r in these_reports]
+    for channel in channels.values():
+        channel.enqueue(posts)
     return False
 
 
@@ -111,31 +110,30 @@ def main(**kwargs):
     """
     main function
     """
-    global bot_api
 
     # logger = logging.getLogger(sys._getframe().f_code.co_name)
-    access_token = environ["BOTSINBOX_ACCESS_TOKEN"]
-    bot_api = Mastodon(
-        access_token=access_token,
-        api_base_url="https://botsinbox.net",
-        version_check_mode="none",
-    )
+    channels = {
+        "@pleiades@botsinbox.net": GoToSocialChannel(
+            access_token=environ["BOTSINBOX_ACCESS_TOKEN"],
+            api_base_url="https://botsinbox.net",
+        )
+    }
     reporters = {"zotero": ZoteroReporter()}
-    periods = {"zotero": 180}
+    periods = {"zotero": 17 * 61, "@pleiades@botsinbox.net": 11 * 61}  # in seconds
     dawn_of_time = datetime(year=1970, month=1, day=1)
-    last_execution = {"zotero": dawn_of_time}
+    last_execution = {"zotero": dawn_of_time, "@pleiades@botsinbox.net": dawn_of_time}
     reports = list()
     report_count = 0
-    LOOP_PERIOD = 180
+    LOOP_PERIOD = 61
     while True:
         try:
             for r_key, reporter in reporters.items():
-
                 if datetime.now() - last_execution[r_key] > timedelta(
                     seconds=periods[r_key]
                 ):
                     logger.info(f"Checking reporter '{r_key}'")
                     reports.extend(reporter.check())
+                    last_execution[r_key] = datetime.now()
             if len(reports) > report_count:
                 print(f"{len(reports) - report_count} new reports have been generated:")
                 new_reports = sorted(
@@ -150,8 +148,15 @@ def main(**kwargs):
                 report_count = len(reports)
                 another_cmd = True
                 while another_cmd:
-                    another_cmd = get_user_disposition(new_reports)
-            print(
+                    another_cmd = get_user_disposition(new_reports, channels)
+            for c_key, channel in channels.items():
+                if datetime.now() - last_execution[c_key] > timedelta(
+                    seconds=periods[c_key]
+                ):
+                    logger.info(f"Posting from queue in channel '{c_key}'")
+                    channel.post_next()
+                    last_execution[c_key] = datetime.now()
+            logger.info(
                 f"Sleeping for {LOOP_PERIOD} seconds (i.e., until {(datetime.now() + timedelta(seconds=LOOP_PERIOD)).strftime(DEFAULT_DATETIME_FORMAT)})"
             )
             sleep(LOOP_PERIOD)
