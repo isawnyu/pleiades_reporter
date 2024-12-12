@@ -6,12 +6,17 @@
 #
 
 """
-Subclass AtomReporter to deal with Pleiades AtomFeeds
+Test the pleiades_reporter.atom module
 """
 
 from pleiades_reporter.atom import AtomReporter
+import pytz
 
 
-class PleiadesAtomReporter(AtomReporter):
-    def __init__(self):
-        AtomReporter.__init__(self)
+class TestAtomReporter:
+    @classmethod
+    def setup_class(cls):
+        cls.r = AtomReporter()
+
+    def test_init(self):
+        assert isinstance(self.r, AtomReporter)

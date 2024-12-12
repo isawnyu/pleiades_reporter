@@ -10,10 +10,13 @@ Test the pleiades_reporter.pleiades module
 """
 
 from datetime import datetime
-from pleiades_reporter.pleiades import PleiadesReporter
+from pleiades_reporter.pleiades import PleiadesAtomReporter
 
 
 class TestPleiadesReporter:
     @classmethod
     def setup_class(cls):
-        cls.r = PleiadesReporter()
+        cls.r = PleiadesAtomReporter()
+
+    def test_init(self):
+        assert isinstance(self.r, PleiadesAtomReporter)

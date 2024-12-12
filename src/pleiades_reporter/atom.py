@@ -6,12 +6,10 @@
 #
 
 """
-Subclass AtomReporter to deal with Pleiades AtomFeeds
+Provide a generic class for reporting on content in Atom feeds
 """
 
-from pleiades_reporter.atom import AtomReporter
 
-
-class PleiadesAtomReporter(AtomReporter):
+class AtomReporter:
     def __init__(self):
-        AtomReporter.__init__(self)
+        pass
