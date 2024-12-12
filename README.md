@@ -2,7 +2,7 @@
 
 Create and disseminate social media posts on Pleiades activity. 
 
-Currently designed to post to the Pleiades account on botsinbox.net.
+Currently designed to post to the Pleiades account on botsinbox.net, which is a GoToSocial instance.
 
 ## Roadmap:
 
@@ -20,5 +20,19 @@ Currently designed to post to the Pleiades account on botsinbox.net.
 
 - [ ] Find and report on new places in Pleiades
 
-- [ ] Introduce `Channel` classes, one for each dissemination channel
-    - [ ] GoToSocialChannel
+- [ ] Find and report new Pleiades blog posts
+    - Atom feed: https://pleiades.stoa.org/news/blog/collector/atom
+
+- [ ] Find and report new Pleiades events
+    - Atom feed: https://pleiades.stoa.org/events/upcoming-events.atom
+
+- [ ] Find and report on Pleiades data quality
+
+- [ ] Find and report on new and newly closed Pleiades development issues
+
+- [x] Introduce `Channel` classes, one for each dissemination channel
+    - [x] GoToSocialChannel (uses the Mastodon API)
+    - [ ] Facebook (since we have a legacy presence there)
+        - [ ] Support only sending some reports to some channels (e.g., here blog posts is probably all we want)
+    
+    
