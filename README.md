@@ -19,3 +19,6 @@ Currently designed to post to the Pleiades account on botsinbox.net.
 - [x] Post reports via the Mastodon API to the Pleiades gazetteer Fediverse account
 
 - [ ] Find and report on new places in Pleiades
+
+- [ ] Introduce `Channel` classes, one for each dissemination channel
+    - [ ] GoToSocialChannel
