@@ -16,6 +16,7 @@ import logging
 from mastodon import Mastodon
 from os import environ
 from pathlib import Path
+from pleiades_reporter.go_to_social import GoToSocialChannel
 from pleiades_reporter.zotero import ZoteroReporter
 from pleiades_reporter.text import norm
 from pprint import pformat
