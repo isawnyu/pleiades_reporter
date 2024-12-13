@@ -13,11 +13,14 @@ from datetime import datetime
 from pleiades_reporter.zotero import ZoteroReporter
 import pytz
 
+DEFAULT_USER_AGENT = "PleiadesReporter/0.1 (+https://pleiades.stoa.org)"
+DEFAULT_FROM = "pleiades.admin@nyu.edu"
+
 
 class TestZoteroReporter:
     @classmethod
     def setup_class(cls):
-        cls.r = ZoteroReporter()
+        cls.r = ZoteroReporter(user_agent=DEFAULT_USER_AGENT, from_header=DEFAULT_FROM)
 
     def test_init_webi(self):
         assert self.r._webi is not None

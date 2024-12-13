@@ -8,11 +8,12 @@
 """
 Subclass AtomReporter to deal with Pleiades AtomFeeds
 """
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from platformdirs import user_cache_dir
 from pleiades_reporter.atom import AtomReporter
 from pleiades_reporter.reporter import Reporter
+import pytz
 
 CACHE_DIR_PATH = Path(user_cache_dir("pleiades_reporter"))
 
@@ -35,3 +36,17 @@ class PleiadesAtomReporter(Reporter, AtomReporter):
             cache_dir_path=CACHE_DIR_PATH,
         )
         AtomReporter.__init__(self)
+
+    def check(self):
+        """
+        Check for new Pleiades records since last check and return a list of reports
+        """
+        now = datetime.now(tz=pytz.utc)
+        if self._wait_until > now:
+            return list()
+        if self._wait_every_time:
+            if self._last_web_request + timedelta(seconds=self._wait_every_time) > now:
+                return list()
+        new_records = self._get_new_pleiades_records(bypass_cache=True)
+        self.logger.debug(f"Got {len(new_records)}")
+        return [self._make_report(rec) for rec in new_records]

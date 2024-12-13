@@ -56,6 +56,7 @@ class ZoteroReporter(Reporter):
             expire_after=timedelta(minutes=WEB_CACHE_DURATION),
             cache_control=False,
             cache_dir_path=CACHE_DIR_PATH,
+            local_cache_writer=self._zot_cache_write,
         )
         self._zot_cache_read()  # sets _last_zot_version and _last_check
         self.logger = getLogger("zotero.ZoteroReporter")
@@ -104,24 +105,6 @@ class ZoteroReporter(Reporter):
             new_records = list()
         self.logger.debug(f"Got {len(new_records)}")
         return [self._make_report(rec) for rec in new_records]
-
-    @property
-    def last_check(self) -> datetime:
-        return self._last_check
-
-    @last_check.setter
-    def last_check(self, val: datetime):
-        self._last_check = val
-        self._zot_cache_write()
-
-    @property
-    def last_zot_version(self) -> str:
-        return self._last_zot_version
-
-    @last_zot_version.setter
-    def last_zot_version(self, val: str):
-        self._last_zot_version = val
-        self._zot_cache_write()
 
     def _check_for_latest_version(
         self, bypass_cache=True, reference_zot_version: str = ""
@@ -346,3 +329,15 @@ class ZoteroReporter(Reporter):
         ]
         self.logger.debug(f"_zot_get_new_records: {len(new)}")
         return new
+
+    @property
+    def last_zot_version(self) -> str:
+        return self._last_zot_version
+
+    @last_zot_version.setter
+    def last_zot_version(self, val: str):
+        self._last_zot_version = val
+        try:
+            self._local_cache_writer()
+        except AttributeError:
+            pass

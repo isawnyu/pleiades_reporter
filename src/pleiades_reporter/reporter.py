@@ -24,7 +24,9 @@ class Reporter:
         expire_after: timedelta,
         cache_control: bool,
         cache_dir_path: Path,
+        local_cache_writer=None,
     ):
+        self._local_cache_writer = local_cache_writer
         if not valid_uri(api_base_uri):
             raise ValueError(f"Invalid API Base Uri: '{api_base_uri}'")
         self._webi = Webi(
@@ -40,3 +42,15 @@ class Reporter:
             self._last_web_request
         )  # do not make another request before this datetime
         self._wait_every_time = 0  # seconds to wait before each check
+
+    @property
+    def last_check(self) -> datetime:
+        return self._last_check
+
+    @last_check.setter
+    def last_check(self, val: datetime):
+        self._last_check = val
+        try:
+            self._local_cache_writer()
+        except AttributeError:
+            pass
