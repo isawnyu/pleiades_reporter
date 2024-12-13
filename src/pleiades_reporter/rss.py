@@ -8,6 +8,7 @@
 """
 Provide a generic class for reporting on content in RSS feeds
 """
+import feedparser
 from datetime import datetime
 from pleiades_reporter.reporter import ReporterWebWait
 
@@ -30,4 +31,9 @@ class RSSReporter:
         if r.status_code != 200:
             r.raise_for_status()
         else:
-            print("woot!")
+            d = feedparser.parse(r.text)
+            self.logger.debug(f"since: {since.isoformat()}")
+            updated_entries = [
+                e for e in d.entries if datetime.fromisoformat(e.updated) >= since
+            ]
+            return updated_entries

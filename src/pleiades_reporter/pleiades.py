@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from logging import getLogger
 from pathlib import Path
 from platformdirs import user_cache_dir
+from pleiades_reporter.report import PleiadesReport
 from pleiades_reporter.rss import RSSReporter
 from pleiades_reporter.reporter import Reporter
 import pytz
@@ -44,10 +45,30 @@ class PleiadesRSSReporter(Reporter, RSSReporter):
         """
         Check for new Pleiades records since last check and return a list of reports
         """
+        # get new feed entries that have update dates since our last check
+        new_places = list()
         new_records = self._get_new_entries(since=self.last_check)
-        self.logger.debug(f"Got {len(new_records)}")
-        self.last_check = datetime.now(tz=pytz.utc)
-        return [self._make_report(rec) for rec in new_records]
+        self.logger.debug(
+            f"Got {len(new_records)} feed records updated since {self.last_check.isoformat()}"
+        )
+        this_check = datetime.now(tz=pytz.utc)
+        if new_records:
+            pleiades_json = [self._get_pleiades_json(r.link) for r in new_records]
+            self.logger.debug(
+                f"Got {len(pleiades_json)} json files from Pleiades {this_check.isoformat()}"
+            )
+            pleiades_creates = [
+                datetime.fromisoformat(j["history"][-1]["modified"])
+                for j in pleiades_json
+            ]
+            new_places = [
+                pleiades_json[i]
+                for i, dt in enumerate(pleiades_creates)
+                if dt >= self.last_check
+            ]
+            self.logger.debug(f"Got {len(new_places)} new indexes")
+        self.last_check = this_check
+        return [self._make_report(place) for place in new_places]
 
     def _cache_read(self):
         """
@@ -72,6 +93,16 @@ class PleiadesRSSReporter(Reporter, RSSReporter):
             "last_time_checked": self._last_check.isoformat(),
         }
         Reporter._cache_write(self, d)
+
+    def _get_pleiades_json(self, puri: str):
+        juri = puri + "/json"
+        r = self._webi.get(uri=juri)
+        if r.status_code == 200:
+            return r.json()
+        r.raise_for_status
+
+    def _make_report(self, place: dict) -> PleiadesReport:
+        raise NotImplementedError()
 
 
 class PleiadesAtomReporter:
