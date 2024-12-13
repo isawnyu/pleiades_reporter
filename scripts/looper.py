@@ -27,6 +27,8 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_DATETIME_FORMAT = "%Y-%m-%d %H:%M"
 DEFAULT_LOG_LEVEL = logging.WARNING
+DEFAULT_USER_AGENT = "PleiadesReporter/0.1 (+https://pleiades.stoa.org)"
+DEFAULT_FROM = "pleiades.admin@nyu.edu"
 OPTIONAL_ARGUMENTS = [
     [
         "-l",
@@ -44,6 +46,8 @@ OPTIONAL_ARGUMENTS = [
         "very verbose output (logging level == DEBUG)",
         False,
     ],
+    ["-u", "--useragent", DEFAULT_USER_AGENT, "user agent for web requests", False],
+    ["-f", "--from", DEFAULT_FROM, "from header value for web requests", False],
 ]
 POSITIONAL_ARGUMENTS = [
     # each row is a list with 3 elements: name, type, help
@@ -118,7 +122,11 @@ def main(**kwargs):
             api_base_url="https://botsinbox.net",
         )
     }
-    reporters = {"zotero": ZoteroReporter()}
+    reporters = {
+        "zotero": ZoteroReporter(
+            user_agent=kwargs["useragent"], from_header=kwargs["from"]
+        )
+    }
     periods = {"zotero": 17 * 61, "@pleiades@botsinbox.net": 11 * 61}  # in seconds
     dawn_of_time = datetime(year=1970, month=1, day=1)
     last_execution = {"zotero": dawn_of_time, "@pleiades@botsinbox.net": dawn_of_time}

@@ -8,10 +8,30 @@
 """
 Subclass AtomReporter to deal with Pleiades AtomFeeds
 """
-
+from datetime import timedelta
+from pathlib import Path
+from platformdirs import user_cache_dir
 from pleiades_reporter.atom import AtomReporter
+from pleiades_reporter.reporter import Reporter
+
+CACHE_DIR_PATH = Path(user_cache_dir("pleiades_reporter"))
+
+HEADERS = dict()
+WEB_CACHE_DURATION = 157  # minutes
 
 
-class PleiadesAtomReporter(AtomReporter):
-    def __init__(self):
+class PleiadesAtomReporter(Reporter, AtomReporter):
+    def __init__(self, api_base_uri: str, user_agent: str, from_header: str):
+        headers = HEADERS
+        headers["User-Agent"] = user_agent
+        headers["From"] = from_header
+        Reporter.__init__(
+            self,
+            api_base_uri=api_base_uri,
+            headers=headers,
+            respect_robots_txt=False,
+            expire_after=timedelta(minutes=WEB_CACHE_DURATION),
+            cache_control=False,
+            cache_dir_path=CACHE_DIR_PATH,
+        )
         AtomReporter.__init__(self)

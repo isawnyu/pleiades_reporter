@@ -11,5 +11,5 @@ Provide a generic class for reporting on content in Atom feeds
 
 
 class AtomReporter:
-    def __init__(self):
+    def __init__(self, **kwargs):
         pass

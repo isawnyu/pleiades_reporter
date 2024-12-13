@@ -25,7 +25,6 @@ API_BASE = "https://api.zotero.org"
 LIBRARY_ID = "2533"
 API_KEY = environ["ZOTERO_API_KEY"]
 HEADERS = {
-    "User-Agent": "PleiadesReporter/0.1 (+https://pleiades.stoa.org)",
     "Zotero-API-Version": "3",
     "Zotero-API-Key": API_KEY,
 }
@@ -45,13 +44,14 @@ class ZoteroReporter(Reporter):
       per new item.
     """
 
-    def __init__(
-        self,
-    ):
+    def __init__(self, user_agent: str, from_header: str):
+        headers = HEADERS
+        headers["User-Agent"] = user_agent
+        headers["From"] = from_header
         Reporter.__init__(
             self,
             api_base_uri=API_BASE,
-            headers=HEADERS,
+            headers=headers,
             respect_robots_txt=False,
             expire_after=timedelta(minutes=WEB_CACHE_DURATION),
             cache_control=False,
