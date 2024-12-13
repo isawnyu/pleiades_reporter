@@ -9,6 +9,7 @@
 Report on activity in the Pleaides Zotero Library
 """
 from pleiades_reporter.report import PleiadesReport
+from pleiades_reporter.reporter import Reporter
 from datetime import datetime, timedelta
 import json
 from logging import getLogger
@@ -19,8 +20,6 @@ from platformdirs import user_cache_dir
 from pprint import pprint, pformat
 import pytz
 from requests import Response
-from urllib.parse import urlparse
-from webiquette.webi import Webi
 
 API_BASE = "https://api.zotero.org"
 LIBRARY_ID = "2533"
@@ -39,7 +38,7 @@ class ZoteroAPITooManyRequests(Exception):
         super().__init__(msg)
 
 
-class ZoteroReporter:
+class ZoteroReporter(Reporter):
     """
     Capabilities:
     - Get new bibliographic items since a previous version and produce a list of corresponding PleiadesReport objects, one
@@ -49,20 +48,16 @@ class ZoteroReporter:
     def __init__(
         self,
     ):
-        self._webi = Webi(
-            netloc=urlparse(API_BASE).netloc,
+        Reporter.__init__(
+            self,
+            api_base_uri=API_BASE,
             headers=HEADERS,
             respect_robots_txt=False,
             expire_after=timedelta(minutes=WEB_CACHE_DURATION),
             cache_control=False,
-            cache_dir=str(CACHE_DIR_PATH),
+            cache_dir_path=CACHE_DIR_PATH,
         )
         self._zot_cache_read()  # sets _last_zot_version and _last_check
-        self._last_web_request = datetime.fromisoformat("1900-01-01T12:12:12+00:00")
-        self._wait_until = (
-            self._last_web_request
-        )  # do not make another request before this datetime
-        self._wait_every_time = 0  # seconds to wait before each check
         self.logger = getLogger("zotero.ZoteroReporter")
 
     def check(
