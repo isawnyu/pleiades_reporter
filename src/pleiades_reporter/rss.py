@@ -6,13 +6,13 @@
 #
 
 """
-Provide a generic class for reporting on content in Atom feeds
+Provide a generic class for reporting on content in RSS feeds
 """
 from datetime import datetime
 from pleiades_reporter.reporter import ReporterWebWait
 
 
-class AtomReporter:
+class RSSReporter:
     def __init__(self, **kwargs):
         pass
 
@@ -27,7 +27,7 @@ class AtomReporter:
         except ReporterWebWait:
             # request delay rules indicate we cannot make the request yet, so move on
             return list()
-        if r.status != 200:
+        if r.status_code != 200:
             r.raise_for_status()
         else:
             print("woot!")

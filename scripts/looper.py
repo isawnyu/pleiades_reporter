@@ -17,6 +17,7 @@ from mastodon import Mastodon
 from os import environ
 from pathlib import Path
 from pleiades_reporter.go_to_social import GoToSocialChannel
+from pleiades_reporter.pleiades import PleiadesRSSReporter
 from pleiades_reporter.post import Post
 from pleiades_reporter.zotero import ZoteroReporter
 from pleiades_reporter.text import norm
@@ -123,13 +124,27 @@ def main(**kwargs):
         )
     }
     reporters = {
-        "zotero": ZoteroReporter(
-            user_agent=kwargs["useragent"], from_header=kwargs["from"]
-        )
+        "pleiades-new-places": PleiadesRSSReporter(
+            name="pleiades-new-places",
+            api_base_uri="https://pleiades.stoa.org/indexes/published/RSS",
+            user_agent=kwargs["useragent"],
+            from_header=kwargs["from"],
+        ),
+        "zotero-new-items": ZoteroReporter(
+            name="zotero-new-items",
+            user_agent=kwargs["useragent"],
+            from_header=kwargs["from"],
+        ),
     }
-    periods = {"zotero": 17 * 61, "@pleiades@botsinbox.net": 11 * 61}  # in seconds
+    periods = {
+        "pleiades-new-places": 123,
+        "@pleiades@botsinbox.net": 11 * 61,
+        "zotero-new-items": 17 * 61,
+    }  # in seconds
     dawn_of_time = datetime(year=1970, month=1, day=1)
-    last_execution = {"zotero": dawn_of_time, "@pleiades@botsinbox.net": dawn_of_time}
+    last_execution = dict()
+    for k in reporters.keys():
+        last_execution[k] = dawn_of_time
     reports = list()
     report_count = 0
     LOOP_PERIOD = 61

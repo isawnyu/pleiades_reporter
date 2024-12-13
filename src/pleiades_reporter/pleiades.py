@@ -9,10 +9,10 @@
 Subclass AtomReporter to deal with Pleiades AtomFeeds
 """
 from datetime import datetime, timedelta
-import json
+from logging import getLogger
 from pathlib import Path
 from platformdirs import user_cache_dir
-from pleiades_reporter.atom import AtomReporter
+from pleiades_reporter.rss import RSSReporter
 from pleiades_reporter.reporter import Reporter
 import pytz
 
@@ -22,13 +22,14 @@ HEADERS = dict()
 WEB_CACHE_DURATION = 157  # minutes
 
 
-class PleiadesAtomReporter(Reporter, AtomReporter):
-    def __init__(self, api_base_uri: str, user_agent: str, from_header: str):
+class PleiadesRSSReporter(Reporter, RSSReporter):
+    def __init__(self, name: str, api_base_uri: str, user_agent: str, from_header: str):
         headers = HEADERS
         headers["User-Agent"] = user_agent
         headers["From"] = from_header
         Reporter.__init__(
             self,
+            name=name,
             api_base_uri=api_base_uri,
             headers=headers,
             respect_robots_txt=False,
@@ -36,51 +37,42 @@ class PleiadesAtomReporter(Reporter, AtomReporter):
             cache_control=False,
             cache_dir_path=CACHE_DIR_PATH,
         )
-        AtomReporter.__init__(self)
+        RSSReporter.__init__(self)
+        self.logger = getLogger(f"pleiades.PleiadesRSSReporter({name})")
 
     def check(self):
         """
         Check for new Pleiades records since last check and return a list of reports
         """
-        now = datetime.now(tz=pytz.utc)
-        if self._wait_until > now:
-            return list()
-        if self._wait_every_time:
-            if self._last_web_request + timedelta(seconds=self._wait_every_time) > now:
-                return list()
-        new_records = self._get_new_pleiades_records(bypass_cache=True)
+        new_records = self._get_new_entries(since=self.last_check)
         self.logger.debug(f"Got {len(new_records)}")
+        self.last_check = datetime.now(tz=pytz.utc)
         return [self._make_report(rec) for rec in new_records]
 
     def _cache_read(self):
         """
-        Read critical info from the local cache
+        Read critical Pleiades info from the local cache
         - last datetime checked
         """
         try:
-            with open(
-                CACHE_DIR_PATH / "zotero_metadata.json", "r", encoding="utf-8"
-            ) as f:
-                d = json.load(f)
-            del f
+            cached_data = Reporter._cache_read(self)
         except FileNotFoundError:
-            # write a version and date that will ensure updates must be checked
-            self._last_zot_version = "38632"
+            # write a date that will ensure updates must be checked
             self._last_check = datetime.fromisoformat("2024-01-01T12:12:12+00:00")
-            self._zot_cache_write()
+            self._cache_write()
         else:
-            self._last_zot_version = d["last_version_checked"]
-            self._last_check = datetime.fromisoformat(d["last_time_checked"])
+            self._last_check = datetime.fromisoformat(cached_data["last_time_checked"])
 
     def _cache_write(self):
         """
-        Write critical info to the local cache
+        Write critical Pleiades info to the local cache
         - last datetime checked
         """
         d = {
-            "last_version_checked": self._last_zot_version,
             "last_time_checked": self._last_check.isoformat(),
         }
-        with open(CACHE_DIR_PATH / "zotero_metadata.json", "w", encoding="utf-8") as f:
-            json.dump(d, f)
-        del f
+        Reporter._cache_write(self, d)
+
+
+class PleiadesAtomReporter:
+    pass

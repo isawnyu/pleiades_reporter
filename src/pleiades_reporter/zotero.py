@@ -44,13 +44,13 @@ class ZoteroReporter(Reporter):
       per new item.
     """
 
-    def __init__(self, user_agent: str, from_header: str):
+    def __init__(self, name: str, user_agent: str, from_header: str):
         headers = HEADERS
         headers["User-Agent"] = user_agent
         headers["From"] = from_header
         Reporter.__init__(
             self,
-            name="zotero-new-items",
+            name=name,
             api_base_uri=API_BASE,
             headers=headers,
             respect_robots_txt=False,
@@ -58,7 +58,7 @@ class ZoteroReporter(Reporter):
             cache_control=False,
             cache_dir_path=CACHE_DIR_PATH,
         )
-        self._cache_read()  # sets _last_zot_version and _last_check
+        # self._cache_read()  # sets _last_zot_version and _last_check
         self.logger = getLogger("zotero.ZoteroReporter")
 
     def check(

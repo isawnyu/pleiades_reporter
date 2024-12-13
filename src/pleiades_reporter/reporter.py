@@ -11,10 +11,16 @@ Provide a generic class for basic reporter setup
 from datetime import datetime, timedelta
 import json
 from pathlib import Path
+import pytz
 from slugify import slugify
 from validators import url as valid_uri
 from urllib.parse import urlparse
 from webiquette.webi import Webi
+
+
+class ReporterWebWait(Exception):
+    def __init__(self, msg: str):
+        super().__init__(msg)
 
 
 class Reporter:
@@ -29,6 +35,7 @@ class Reporter:
         cache_dir_path: Path,
     ):
         self.name = slugify(name)
+        self.api_base_uri = api_base_uri
         self.cache_dir_path = cache_dir_path
         if not name:
             raise ValueError(f"Reporter name cannot be an empty string: '{name}'")
@@ -46,7 +53,8 @@ class Reporter:
         self._wait_until = (
             self._last_web_request
         )  # do not make another request before this datetime
-        self._wait_every_time = 0  # seconds to wait before each check
+        self._wait_every_time = 0  # seconds to wait before each request
+        self._cache_read()
 
     @property
     def last_check(self) -> datetime:
@@ -84,3 +92,30 @@ class Reporter:
         ) as f:
             json.dump(data_to_cache, f)
         del f
+
+    def _web_get(
+        self,
+        additional_headers: dict = dict(),
+        bypass_cache: bool = False,
+        retries: int = 1,
+        backoff_step: int = 15,
+        **kwargs,
+    ):
+        now = datetime.now(tz=pytz.utc)
+        wait_until = max(
+            self._wait_until,
+            self._last_web_request + timedelta(seconds=self._wait_every_time),
+        )
+        if wait_until > now:
+            raise ReporterWebWait(self._wait_until)
+        r = self._webi.get(
+            uri=self.api_base_uri,
+            additional_headers=additional_headers,
+            bypass_cache=bypass_cache,
+            retries=retries,
+            backoff_step=backoff_step,
+            **kwargs,
+        )
+        now = datetime.now(tz=pytz.utc)
+        self._last_web_request = now
+        return r
