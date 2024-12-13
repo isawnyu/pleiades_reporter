@@ -9,7 +9,9 @@
 Provide a generic class for basic reporter setup
 """
 from datetime import datetime, timedelta
+import json
 from pathlib import Path
+from slugify import slugify
 from validators import url as valid_uri
 from urllib.parse import urlparse
 from webiquette.webi import Webi
@@ -18,15 +20,18 @@ from webiquette.webi import Webi
 class Reporter:
     def __init__(
         self,
+        name: str,  # name of the reporter instance (e.g., pleiades-news-blog)
         api_base_uri: str,
         headers: dict,
         respect_robots_txt: bool,
         expire_after: timedelta,
         cache_control: bool,
         cache_dir_path: Path,
-        local_cache_writer=None,
     ):
-        self._local_cache_writer = local_cache_writer
+        self.name = slugify(name)
+        self.cache_dir_path = cache_dir_path
+        if not name:
+            raise ValueError(f"Reporter name cannot be an empty string: '{name}'")
         if not valid_uri(api_base_uri):
             raise ValueError(f"Invalid API Base Uri: '{api_base_uri}'")
         self._webi = Webi(
@@ -51,6 +56,31 @@ class Reporter:
     def last_check(self, val: datetime):
         self._last_check = val
         try:
-            self._local_cache_writer()
+            self._cache_write()
         except AttributeError:
             pass
+
+    def _cache_read(self) -> dict:
+        """
+        Read critical info from this Reporter's local cache
+        """
+        with open(
+            self.cache_dir_path / f"{self.name.replace('-', '_')}_metadata.json",
+            "r",
+            encoding="utf-8",
+        ) as f:
+            cached_data = json.load(f)
+        del f
+        return cached_data
+
+    def _cache_write(self, data_to_cache: dict):
+        """
+        Write critical data to this Reporter's local cache
+        """
+        with open(
+            self.cache_dir_path / f"{self.name.replace('-', '_')}_metadata.json",
+            "w",
+            encoding="utf-8",
+        ) as f:
+            json.dump(data_to_cache, f)
+        del f

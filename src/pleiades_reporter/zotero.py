@@ -50,15 +50,15 @@ class ZoteroReporter(Reporter):
         headers["From"] = from_header
         Reporter.__init__(
             self,
+            name="zotero-new-items",
             api_base_uri=API_BASE,
             headers=headers,
             respect_robots_txt=False,
             expire_after=timedelta(minutes=WEB_CACHE_DURATION),
             cache_control=False,
             cache_dir_path=CACHE_DIR_PATH,
-            local_cache_writer=self._zot_cache_write,
         )
-        self._zot_cache_read()  # sets _last_zot_version and _last_check
+        self._cache_read()  # sets _last_zot_version and _last_check
         self.logger = getLogger("zotero.ZoteroReporter")
 
     def check(
@@ -226,28 +226,24 @@ class ZoteroReporter(Reporter):
                 f"Retry-After: {self._wait_every_time} (uri: {r.url})"
             )
 
-    def _zot_cache_read(self):
+    def _cache_read(self):
         """
         Read critical Zotero info from the local cache
         - last version checked
         - last datetime checked
         """
         try:
-            with open(
-                CACHE_DIR_PATH / "zotero_metadata.json", "r", encoding="utf-8"
-            ) as f:
-                d = json.load(f)
-            del f
+            cached_data = Reporter._cache_read(self)
         except FileNotFoundError:
             # write a version and date that will ensure updates must be checked
             self._last_zot_version = "38632"
             self._last_check = datetime.fromisoformat("2024-01-01T12:12:12+00:00")
-            self._zot_cache_write()
+            self._cache_write()
         else:
-            self._last_zot_version = d["last_version_checked"]
-            self._last_check = datetime.fromisoformat(d["last_time_checked"])
+            self._last_zot_version = cached_data["last_version_checked"]
+            self._last_check = datetime.fromisoformat(cached_data["last_time_checked"])
 
-    def _zot_cache_write(self):
+    def _cache_write(self):
         """
         Write critical Zotero info to the local cache
         - last version checked
@@ -257,9 +253,7 @@ class ZoteroReporter(Reporter):
             "last_version_checked": self._last_zot_version,
             "last_time_checked": self._last_check.isoformat(),
         }
-        with open(CACHE_DIR_PATH / "zotero_metadata.json", "w", encoding="utf-8") as f:
-            json.dump(d, f)
-        del f
+        Reporter._cache_write(self, d)
 
     def _zot_head(self, uri, additional_headers, bypass_cache) -> Response:
         """

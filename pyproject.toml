@@ -41,7 +41,7 @@ dependencies = [
 #"reproj",
 #  "shapely",
   "platformdirs",
-#  "python-slugify",
+  "python-slugify",
   "pytz",
   "textnorm",
   "validators",
