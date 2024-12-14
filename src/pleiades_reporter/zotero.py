@@ -20,6 +20,7 @@ from platformdirs import user_cache_dir
 from pprint import pprint, pformat
 import pytz
 from requests import Response
+from requests.exceptions import HTTPError
 
 API_BASE = "https://api.zotero.org"
 LIBRARY_ID = "2533"
@@ -33,6 +34,11 @@ CACHE_DIR_PATH = Path(user_cache_dir("pleiades_reporter"))
 
 
 class ZoteroAPITooManyRequests(Exception):
+    def __init__(self, msg):
+        super().__init__(msg)
+
+
+class ZoteroAPIUnavailable(Exception):
     def __init__(self, msg):
         super().__init__(msg)
 
@@ -164,15 +170,19 @@ class ZoteroReporter(Reporter):
         zot_key = zot_rec["data"]["key"]
 
         # get citation
-        response = self._zot_get(
-            uri="https://api.zotero.org/groups/2533/items",
-            bypass_cache=False,
-            params={
-                "itemKey": zot_key,
-                "format": "bib",
-                "style": "chicago-fullnote-bibliography",
-            },
-        )
+        try:
+            response = self._zot_get(
+                uri="https://api.zotero.org/groups/2533/items",
+                bypass_cache=False,
+                params={
+                    "itemKey": zot_key,
+                    "format": "bib",
+                    "style": "chicago-fullnote-bibliography",
+                },
+            )
+        except ZoteroAPIUnavailable as err:
+            self.logger.error(str(err))
+            return None
         if response.status_code == 200:
             s = response.text.replace('<?xml version="1.0"?>\n', "")
             s = s + (
@@ -279,12 +289,16 @@ class ZoteroReporter(Reporter):
         """
         Issue an HTTP GET request to the Zotero API
         """
-        r = self._webi.get(
-            uri,
-            additional_headers=additional_headers,
-            bypass_cache=bypass_cache,
-            params=params,
-        )
+        try:
+            r = self._webi.get(
+                uri,
+                additional_headers=additional_headers,
+                bypass_cache=bypass_cache,
+                params=params,
+            )
+        except HTTPError as err:
+            raise ZoteroAPIUnavailable(str(err))
+
         self._last_web_request = datetime.now(tz=pytz.utc)
         self.logger.debug(f"_zot_get: response headers ({pformat(r.headers, indent=4)}")
         self._parse_zot_response_for_backoff(r)

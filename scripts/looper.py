@@ -137,17 +137,17 @@ def main(**kwargs):
         ),
     }
     periods = {
-        "pleiades-new-places": 123,
-        "@pleiades@botsinbox.net": 11 * 61,
-        "zotero-new-items": 17 * 61,
+        "pleiades-new-places": 3607,  # a prime close to every hour
+        "@pleiades@botsinbox.net": 1801,  # prime closest to every 30 minutes
+        "zotero-new-items": 3613,  # a prime close to every hour
     }  # in seconds
     dawn_of_time = datetime(year=1970, month=1, day=1)
     last_execution = dict()
-    for k in reporters.keys():
+    for k in list(set(reporters.keys()).union(set(channels.keys()))):
         last_execution[k] = dawn_of_time
     reports = list()
     report_count = 0
-    LOOP_PERIOD = 61
+    LOOP_PERIOD = 420  # seconds: a prime close to every 7 minutes
     while True:
         try:
             for r_key, reporter in reporters.items():
@@ -155,7 +155,7 @@ def main(**kwargs):
                     seconds=periods[r_key]
                 ):
                     logger.info(f"Checking reporter '{r_key}'")
-                    reports.extend(reporter.check())
+                    reports.extend([r for r in reporter.check() if r is not None])
                     last_execution[r_key] = datetime.now()
             if len(reports) > report_count:
                 print(f"{len(reports) - report_count} new reports have been generated:")

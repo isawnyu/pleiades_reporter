@@ -15,7 +15,10 @@ from platformdirs import user_cache_dir
 from pleiades_reporter.report import PleiadesReport
 from pleiades_reporter.rss import RSSReporter
 from pleiades_reporter.reporter import Reporter
+from pleiades_reporter.text import norm, comma_separated_list
+from pprint import pformat
 import pytz
+import re
 
 CACHE_DIR_PATH = Path(user_cache_dir("pleiades_reporter"))
 
@@ -57,13 +60,25 @@ class PleiadesRSSReporter(Reporter, RSSReporter):
             self.logger.debug(
                 f"Got {len(pleiades_json)} json files from Pleiades {this_check.isoformat()}"
             )
-            pleiades_creates = [
-                datetime.fromisoformat(j["history"][-1]["modified"])
-                for j in pleiades_json
-            ]
+            pleiades_first_pub_dates = list()
+            for j in pleiades_json:
+                publication_events = list()
+                for event in sorted(
+                    j["history"], key=lambda x: x["modified"], reverse=True
+                ):
+                    try:
+                        action = event["action"]
+                    except KeyError:
+                        pass  # irrelevant changes
+                    else:
+                        if action == "Publish externally":
+                            publication_events.append(event)
+                pleiades_first_pub_dates.append(
+                    datetime.fromisoformat(publication_events[-1]["modified"])
+                )
             new_places = [
                 pleiades_json[i]
-                for i, dt in enumerate(pleiades_creates)
+                for i, dt in enumerate(pleiades_first_pub_dates)
                 if dt >= self.last_check
             ]
             self.logger.debug(f"Got {len(new_places)} new indexes")
@@ -101,8 +116,60 @@ class PleiadesRSSReporter(Reporter, RSSReporter):
             return r.json()
         r.raise_for_status
 
-    def _make_report(self, place: dict) -> PleiadesReport:
-        raise NotImplementedError()
+    def _make_report(self, place_json: dict) -> PleiadesReport:
+        """
+        Create a Pleiades report about a new Pleiades place resources
+        """
+        self.logger.debug(pformat(place_json, indent=4))
+        creators = comma_separated_list([c["name"] for c in place_json["creators"]])
+        contributors = comma_separated_list(
+            [c["name"] for c in place_json["contributors"]]
+        )
+
+        title_names = [
+            norm(n) for n in re.split(r"[/,]", place_json["title"]) if "(" not in n
+        ]
+        title_names = {n.replace("?", "") for n in title_names}
+        names = set()
+        for nrec in place_json["names"]:
+            names.update({norm(n) for n in nrec["romanized"].split(",")})
+            attested = norm(nrec["attested"])
+            if attested:
+                names.add(attested)
+        names.update(title_names)
+        names = sorted(list(names))
+        publication_events = list()
+        for event in sorted(
+            place_json["history"], key=lambda x: x["modified"], reverse=True
+        ):
+            try:
+                action = event["action"]
+            except KeyError:
+                pass  # irrelevant changes
+            else:
+                if action == "Publish externally":
+                    publication_events.append(event)
+        publication_events = sorted(
+            publication_events, key=lambda x: x["modified"], reverse=True
+        )
+        md = (
+            place_json["description"]
+            + (".", "")[place_json["description"][-1] == "."]
+            + "  \n\n"
+            + f"Resource created by {creators}"
+            + (".", f" with contributions by {contributors}.")[len(contributors) > 0]
+            + "  \n\n"
+            + f"Canonical URI: https://pleiades.stoa.org/places/{place_json['id']}"
+            + "  \n\nNames: "
+            + ", ".join(names)
+        )
+        report = PleiadesReport(
+            title=f"New place resource in the Pleiades gazetteer: {place_json['title']}",
+            summary=place_json["description"],
+            markdown=md,
+            when=publication_events[-1]["modified"],
+        )
+        return report
 
 
 class PleiadesAtomReporter:
