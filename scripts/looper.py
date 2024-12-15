@@ -147,7 +147,7 @@ def main(**kwargs):
         last_execution[k] = dawn_of_time
     reports = list()
     report_count = 0
-    LOOP_PERIOD = 420  # seconds: a prime close to every 7 minutes
+    LOOP_PERIOD = 421  # seconds: a prime close to every 7 minutes
     while True:
         try:
             for r_key, reporter in reporters.items():
