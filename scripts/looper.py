@@ -17,7 +17,7 @@ from mastodon import Mastodon
 from os import environ
 from pathlib import Path
 from pleiades_reporter.go_to_social import GoToSocialChannel
-from pleiades_reporter.pleiades import PleiadesRSSReporter
+from pleiades_reporter.pleiades import PleiadesRSSReporter, PleiadesBlogReporter
 from pleiades_reporter.post import Post
 from pleiades_reporter.zotero import ZoteroReporter
 from pleiades_reporter.text import norm
@@ -79,7 +79,7 @@ def get_user_disposition(new_reports: list, channels: dict) -> bool:
     if cmd_lower in ["q", "quit", "exit"]:
         exit()
     if cmd_lower.startswith("preview "):
-        return preview_reports(" ".join(cmd_lower.split()[1:]), new_reports)
+        return preview_reports(" ".join(cmd_lower.split()[1:]), new_reports, channels)
     elif cmd_lower.startswith("publish ") or cmd_lower.startswith("post "):
         return publish_reports(" ".join(cmd_lower.split()[1:]), new_reports, channels)
     else:
@@ -87,15 +87,21 @@ def get_user_disposition(new_reports: list, channels: dict) -> bool:
         return True
 
 
-def preview_reports(predicate: str, new_reports: list) -> bool:
+def preview_reports(predicate: str, new_reports: list, channels: dict) -> bool:
     """
     Preview reports selected by user.
     """
     items = rangeString(predicate)
-    for i in [int(n) - 1 for n in list(items)]:
+    these_reports = [new_reports[i] for i in [int(n) - 1 for n in list(items)]]
+    posts = [
+        Post(body="\n\n".join([r.title, str(r)]), tags=r.tags) for r in these_reports
+    ]
+    for channel in channels.values():
+        print(f"\n>>>>> <<<<<")
+        for post in posts:
+            print("-" * 72)
+            print(channel.preview(post))
         print("-" * 72)
-        print("\n\n".join([new_reports[i].title, str(new_reports[i])]))
-    print("-" * 72)
     return True
 
 
@@ -105,7 +111,9 @@ def publish_reports(predicate: str, new_reports: list, channels: dict) -> bool:
     """
     items = rangeString(predicate)
     these_reports = [new_reports[i] for i in [int(n) - 1 for n in list(items)]]
-    posts = [Post(body="\n\n".join([r.title, str(r)])) for r in these_reports]
+    posts = [
+        Post(body="\n\n".join([r.title, str(r)]), tags=r.tags) for r in these_reports
+    ]
     for channel in channels.values():
         channel.enqueue(posts)
     return False
@@ -124,6 +132,12 @@ def main(**kwargs):
         )
     }
     reporters = {
+        "pleiades-blog": PleiadesBlogReporter(
+            name="pleiades-blog",
+            api_base_uri="https://pleiades.stoa.org/news/blog/collector/atom",
+            user_agent=kwargs["useragent"],
+            from_header=kwargs["from"],
+        ),
         "pleiades-new-places": PleiadesRSSReporter(
             name="pleiades-new-places",
             api_base_uri="https://pleiades.stoa.org/indexes/published/RSS",
@@ -137,6 +151,7 @@ def main(**kwargs):
         ),
     }
     periods = {
+        "pleiades-blog": 3593,  # a prime close to every hour
         "pleiades-new-places": 3607,  # a prime close to every hour
         "@pleiades@botsinbox.net": 1801,  # prime closest to every 30 minutes
         "zotero-new-items": 3613,  # a prime close to every hour

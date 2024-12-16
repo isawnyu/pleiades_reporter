@@ -25,9 +25,21 @@ class GoToSocialChannel(Channel):
             **kwargs,
         )
 
+    def _serialize_post(self, post):
+        content = post.body
+        if post.tags:
+            tags = " ".join([f"#{t}" for t in post.tags])
+            content = "\n\n".join((post.body, tags))
+        else:
+            content = post.body
+        return content
+
     def _post(self, post):
         result = self.api.status_post(
-            status=post.body,
+            status=self._serialize_post(post),
             language="en",
         )
         return result
+
+    def preview(self, post):
+        return self._serialize_post(post)

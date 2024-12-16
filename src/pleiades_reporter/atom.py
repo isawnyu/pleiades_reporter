@@ -9,6 +9,7 @@
 Provide a generic class for reporting on content in Atom feeds
 """
 from datetime import datetime
+import feedparser
 from pleiades_reporter.reporter import ReporterWebWait
 
 
@@ -27,7 +28,12 @@ class AtomReporter:
         except ReporterWebWait:
             # request delay rules indicate we cannot make the request yet, so move on
             return list()
-        if r.status != 200:
+        if r.status_code != 200:
             r.raise_for_status()
         else:
-            print("woot!")
+            d = feedparser.parse(r.text)
+            self.logger.debug(f"since: {since.isoformat()}")
+            updated_entries = [
+                e for e in d.entries if datetime.fromisoformat(e.updated) >= since
+            ]
+            return updated_entries

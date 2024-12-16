@@ -35,6 +35,7 @@ class PleiadesReport:
         self._summary = ""
         self._text = ""
         self._markdown = ""
+        self._tags = list()
         self._when = datetime.now(tz=pytz.utc)
         for k, v in kwargs.items():
             setattr(self, k, v)
@@ -54,6 +55,19 @@ class PleiadesReport:
     @summary.setter
     def summary(self, s: str):
         self._summary = norm(s)
+
+    @property
+    def tags(self):
+        return self._tags
+
+    @tags.setter
+    def tags(self, s: str | list):
+        if isinstance(s, str):
+            raw_tags = [t for t in s.split() if t]
+        elif isinstance(s, list):
+            raw_tags = [t.strip() for t in s if t.strip()]
+        cooked_tags = [(t, t[1:])[t[0] == "#"] for t in raw_tags]
+        self._tags = sorted(cooked_tags, key=lambda k: k.lower())
 
     @property
     def text(self):

@@ -8,8 +8,8 @@
 """
 Provide a generic class for reporting on content in RSS feeds
 """
-import feedparser
 from datetime import datetime
+import feedparser
 from pleiades_reporter.reporter import ReporterWebWait
 
 
