@@ -118,7 +118,7 @@ class PleiadesRSSReporter(Reporter, RSSReporter):
 
     def _make_report(self, place_json: dict) -> PleiadesReport:
         """
-        Create a Pleiades report about a new Pleiades place resources
+        Create a Pleiades report about a new Pleiades place resource
         """
         self.logger.debug(pformat(place_json, indent=4))
         creators = comma_separated_list([c["name"] for c in place_json["creators"]])
