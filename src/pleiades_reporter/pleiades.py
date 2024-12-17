@@ -157,14 +157,11 @@ class PleiadesRSSReporter(Reporter, RSSReporter):
             return r.json()
         r.raise_for_status
 
-    def _get_modification_summary(self, pj: dict, cutoff_date: datetime) -> str:
+    def _get_recent_history(self, obj: dict, cutoff_date: datetime) -> list:
         recent_history = list()
-        horizon_date = None
-        self.logger.error(f'pid={pj["id"]}')
         full_history = sorted(
-            pj["history"], key=lambda event: event["modified"], reverse=True
+            obj["history"], key=lambda event: event["modified"], reverse=True
         )
-        self.logger.error(pformat(full_history, indent=4))
         from_baseline = False
         for e in full_history:
             try:
@@ -172,10 +169,8 @@ class PleiadesRSSReporter(Reporter, RSSReporter):
             except KeyError:
                 comment = e["comment"]
             if comment == "Publish externally":
-                horizon_date = e["modified"]
                 break
             elif comment == "Baseline created":
-                horizon_date = e["modified"]
                 from_baseline = True
                 break
             else:
@@ -189,6 +184,21 @@ class PleiadesRSSReporter(Reporter, RSSReporter):
                 else:
                     pruned_history.append(e)
             recent_history = pruned_history
+        after_cutoff = [
+            e
+            for e in recent_history
+            if datetime.fromisoformat(e["modified"]) >= cutoff_date
+        ]
+        if after_cutoff:
+            return recent_history
+        else:
+            return list()
+
+    def _get_modification_summary(self, pj: dict, cutoff_date: datetime) -> str:
+        """
+        Create a string summarizing all modifications to this place and its children
+        """
+        recent_history = self._get_recent_history(pj, cutoff_date)
         modifications = set()
         people = set()
         for e in recent_history:
@@ -208,25 +218,75 @@ class PleiadesRSSReporter(Reporter, RSSReporter):
             mods = [norm(m) for m in mod.split(";")]
             mods = [m for m in mods if m]
             modifications.update(mods)
+
+        # extract and parse relevant history from subordinate objects
+        more_mods = dict()
+        for k in ["names", "locations", "connections"]:
+            for obj in pj[k]:
+                recent_history = self._get_recent_history(obj, cutoff_date)
+                mods = list()
+                for e in recent_history:
+                    who = e["modifiedBy"]
+                    try:
+                        mod = e["action"]
+                    except KeyError:
+                        mod = e["comment"]
+                    people.add(who)
+                    # more people in comment
+                    if "@" in mod:
+                        for rx in self.rxx_who:
+                            hits = rx.findall(mod)
+                            if hits:
+                                people.update([h for h in hits])
+                                mod = rx.sub("", mod)
+                    mods = [norm(m) for m in mod.split(";")]
+                    mods = [m for m in mods if m]
+                if mods:
+                    more_mods[f"{k}:{obj["id"]}"] = mods
+
+        # look up names for all the people listed and convert to a string
         people = [self._who[p.lower()] for p in people]
         people = [p for p in people if p]
         people = sorted(
             people, key=lambda p: " ".join(p.split()[1:]) + f" {p.split()[0]}"
         )
         people_string = comma_separated_list(list(people))
+
+        # cleanup and normalize the modification strings
         normalized_modifications = list()
         for mod in modifications:
             words = mod.split()
+            if len(words) == 1:
+                if words[0] in {"description", "summary", "placetype", "title"}:
+                    words = ["modified", words[0]]
+                else:
+                    words = words
             new_words = list()
             for word in words:
                 new_word = word
-                if word in {"update"}:
+                if new_word.lower() in {"update"}:
                     new_word = f"{new_word}d"  # past tense
+                if new_word in {"Updated", "Edited"}:
+                    new_word = new_word.lower()
                 new_words.append(new_word)
             normalized_modifications.append(" ".join(new_words))
-        modification_string = comma_separated_list(sorted(normalized_modifications))
-        self.logger.error(f"people_string: {people_string}")
-        self.logger.error(f"modification_string: {modification_string}")
+        if len(normalized_modifications) > 1:
+            normalized_modifications = [
+                m for m in normalized_modifications if m.lower() != "edited"
+            ]
+        normalized_modifications = sorted(normalized_modifications)
+        mod_in_context = {"location": set(), "name": set(), "connection": set()}
+        for mod_k, mods in more_mods.items():
+            if not mods:
+                continue
+            for k in mod_in_context.keys():
+                if mod_k.startswith(k):
+                    mod_in_context[k].update(mods)
+        for k, mods in mod_in_context.items():
+            if mods:
+                normalized_modifications.append(f"{k}s: {', '.join(sorted(mods))}")
+        modification_string = "; ".join(normalized_modifications)
+
         return f"Modifications by {people_string}: {modification_string}"
 
     def _make_report(self, place_json: dict, nature: str = "new") -> PleiadesReport:
