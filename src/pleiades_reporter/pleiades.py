@@ -51,9 +51,10 @@ class PleiadesRSSReporter(Reporter, RSSReporter):
         """
         # get new feed entries that have update dates since our last check
         new_places = list()
-        new_records = self._get_new_entries(since=self.last_check)
+        updated_places = list()
+        new_records = self._get_latest_entries()
         self.logger.debug(
-            f"Got {len(new_records)} feed records updated since {self.last_check.isoformat()}"
+            f"Got {len(new_records)} feed records {self.last_check.isoformat()}"
         )
         this_check = datetime.now(tz=pytz.utc)
         if new_records:
@@ -61,30 +62,13 @@ class PleiadesRSSReporter(Reporter, RSSReporter):
             self.logger.debug(
                 f"Got {len(pleiades_json)} json files from Pleiades {this_check.isoformat()}"
             )
-            pleiades_first_pub_dates = list()
-            for j in pleiades_json:
-                publication_events = list()
-                for event in sorted(
-                    j["history"], key=lambda x: x["modified"], reverse=True
-                ):
-                    try:
-                        action = event["action"]
-                    except KeyError:
-                        pass  # irrelevant changes
-                    else:
-                        if action == "Publish externally":
-                            publication_events.append(event)
-                pleiades_first_pub_dates.append(
-                    datetime.fromisoformat(publication_events[-1]["modified"])
-                )
-            new_places = [
-                pleiades_json[i]
-                for i, dt in enumerate(pleiades_first_pub_dates)
-                if dt >= self.last_check
-            ]
-            self.logger.debug(f"Got {len(new_places)} new indexes")
+            new_places, updated_places = self._determine_changed(pleiades_json)
         self.last_check = this_check
-        return [self._make_report(place) for place in new_places]
+        reports = [self._make_report(place, "new") for place in new_places]
+        reports.extend(
+            [self._make_report(place, "updated") for place in updated_places]
+        )
+        return reports
 
     def _cache_read(self):
         """
@@ -110,6 +94,54 @@ class PleiadesRSSReporter(Reporter, RSSReporter):
         }
         Reporter._cache_write(self, d)
 
+    def _determine_changed(self, pleiades_json: list) -> tuple:
+
+        # determine newly published places
+        pleiades_first_pub_dates = list()
+        pleiades_latest_modification_dates = list()
+        for j in pleiades_json:
+            first_pub_date, latest_mod_date = self._get_event_dates(j)
+            pleiades_first_pub_dates.append(first_pub_date)
+            pleiades_latest_modification_dates.append(latest_mod_date)
+
+        new_places = list()
+        updated_places = list()
+        for i, pj in enumerate(pleiades_json):
+            published_dt = pleiades_first_pub_dates[i]
+            modified_dt = pleiades_latest_modification_dates[i]
+            self.logger.debug(
+                f"DETERMINATION: pid:{pj['id']} published:{published_dt.isoformat()} modified:{modified_dt.isoformat()}"
+            )
+            if pleiades_first_pub_dates[i] >= self.last_check:
+                new_places.append(pj)
+            elif pleiades_latest_modification_dates[i] >= self.last_check:
+                updated_places.append(pj)
+        self.logger.debug(f"New places: {len(new_places)}")
+        self.logger.debug(f"Updated places: {len(updated_places)}")
+        return (new_places, updated_places)
+
+    def _get_event_dates(self, pleiades_json: dict) -> tuple:
+        publication_events = list()
+        modification_events = list()
+        for event in pleiades_json["history"]:
+            modification_events.append(event)
+            try:
+                action = event["action"]
+            except KeyError:
+                pass  # irrelevant changes
+            else:
+                if action == "Publish externally":
+                    publication_events.append(event)
+        publication_events = sorted(
+            publication_events, key=lambda e: e["modified"], reverse=True
+        )
+        modification_events = sorted(
+            modification_events, key=lambda e: e["modified"], reverse=True
+        )
+        latest_mod_date = datetime.fromisoformat(modification_events[0]["modified"])
+        first_pub_date = datetime.fromisoformat(publication_events[-1]["modified"])
+        return (first_pub_date, latest_mod_date)
+
     def _get_pleiades_json(self, puri: str):
         juri = puri + "/json"
         r = self._webi.get(uri=juri)
@@ -117,7 +149,7 @@ class PleiadesRSSReporter(Reporter, RSSReporter):
             return r.json()
         r.raise_for_status
 
-    def _make_report(self, place_json: dict) -> PleiadesReport:
+    def _make_report(self, place_json: dict, nature: str = "new") -> PleiadesReport:
         """
         Create a Pleiades report about a new Pleiades place resource
         """
@@ -139,20 +171,7 @@ class PleiadesRSSReporter(Reporter, RSSReporter):
                 names.add(attested)
         names.update(title_names)
         names = sorted(list(names))
-        publication_events = list()
-        for event in sorted(
-            place_json["history"], key=lambda x: x["modified"], reverse=True
-        ):
-            try:
-                action = event["action"]
-            except KeyError:
-                pass  # irrelevant changes
-            else:
-                if action == "Publish externally":
-                    publication_events.append(event)
-        publication_events = sorted(
-            publication_events, key=lambda x: x["modified"], reverse=True
-        )
+
         md = (
             place_json["description"]
             + (".", "")[place_json["description"][-1] == "."]
@@ -164,11 +183,19 @@ class PleiadesRSSReporter(Reporter, RSSReporter):
             + "  \n\nNames: "
             + ", ".join(names)
         )
+
+        # determine when
+        first_pub_date, latest_mod_date = self._get_event_dates(place_json)
+        if nature == "new":
+            when = first_pub_date
+        else:
+            when = latest_mod_date
+
         report = PleiadesReport(
-            title=f"New place resource in the Pleiades gazetteer: {place_json['title']}",
+            title=f"{nature.title()} place resource in the Pleiades gazetteer: {place_json['title']}",
             summary=place_json["description"],
             markdown=md,
-            when=publication_events[-1]["modified"],
+            when=when.strftime("%Y-%m-%d"),
         )
         return report
 

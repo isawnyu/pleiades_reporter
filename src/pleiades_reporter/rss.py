@@ -17,7 +17,7 @@ class RSSReporter:
     def __init__(self, **kwargs):
         pass
 
-    def _get_new_entries(self, since: datetime, bypass_cache: bool = True) -> list:
+    def _get_latest_entries(self, bypass_cache: bool = True) -> list:
         """
         Get new entries in the feed since since_datetime and return them as a list
         """
@@ -32,8 +32,4 @@ class RSSReporter:
             r.raise_for_status()
         else:
             d = feedparser.parse(r.text)
-            self.logger.debug(f"since: {since.isoformat()}")
-            updated_entries = [
-                e for e in d.entries if datetime.fromisoformat(e.updated) >= since
-            ]
-            return updated_entries
+            return d.entries
