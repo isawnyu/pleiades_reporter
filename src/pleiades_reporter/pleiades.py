@@ -9,6 +9,7 @@
 Subclass AtomReporter to deal with Pleiades AtomFeeds
 """
 from datetime import datetime, timedelta
+import json
 from logging import getLogger
 from pathlib import Path
 from platformdirs import user_cache_dir
@@ -44,6 +45,13 @@ class PleiadesRSSReporter(Reporter, RSSReporter):
         )
         RSSReporter.__init__(self)
         self.logger = getLogger(f"pleiades.PleiadesRSSReporter({name})")
+        self.rxx_who = [
+            re.compile(r" by @(?P<who>[a-zA-Z]+)"),
+            re.compile(r"@(?P<who>[a-zA-Z]+)"),
+        ]
+        with open("data/who.json", "r", encoding="utf-8") as f:
+            self._who = json.load(f)
+        del f
 
     def check(self):
         """
@@ -149,6 +157,78 @@ class PleiadesRSSReporter(Reporter, RSSReporter):
             return r.json()
         r.raise_for_status
 
+    def _get_modification_summary(self, pj: dict, cutoff_date: datetime) -> str:
+        recent_history = list()
+        horizon_date = None
+        self.logger.error(f'pid={pj["id"]}')
+        full_history = sorted(
+            pj["history"], key=lambda event: event["modified"], reverse=True
+        )
+        self.logger.error(pformat(full_history, indent=4))
+        from_baseline = False
+        for e in full_history:
+            try:
+                comment = e["action"]
+            except KeyError:
+                comment = e["comment"]
+            if comment == "Publish externally":
+                horizon_date = e["modified"]
+                break
+            elif comment == "Baseline created":
+                horizon_date = e["modified"]
+                from_baseline = True
+                break
+            else:
+                recent_history.append(e)
+        if not from_baseline:
+            # prune too-early direct edits from recent history
+            pruned_history = list()
+            for e in recent_history:
+                if datetime.fromisoformat(e["modified"]) < cutoff_date:
+                    break
+                else:
+                    pruned_history.append(e)
+            recent_history = pruned_history
+        modifications = set()
+        people = set()
+        for e in recent_history:
+            who = e["modifiedBy"]
+            try:
+                mod = e["action"]
+            except KeyError:
+                mod = e["comment"]
+            people.add(who)
+            # more people in comment
+            if "@" in mod:
+                for rx in self.rxx_who:
+                    hits = rx.findall(mod)
+                    if hits:
+                        people.update([h for h in hits])
+                        mod = rx.sub("", mod)
+            mods = [norm(m) for m in mod.split(";")]
+            mods = [m for m in mods if m]
+            modifications.update(mods)
+        people = [self._who[p.lower()] for p in people]
+        people = [p for p in people if p]
+        people = sorted(
+            people, key=lambda p: " ".join(p.split()[1:]) + f" {p.split()[0]}"
+        )
+        people_string = comma_separated_list(list(people))
+        normalized_modifications = list()
+        for mod in modifications:
+            words = mod.split()
+            new_words = list()
+            for word in words:
+                new_word = word
+                if word in {"update"}:
+                    new_word = f"{new_word}d"  # past tense
+                new_words.append(new_word)
+            normalized_modifications.append(" ".join(new_words))
+        modification_string = comma_separated_list(sorted(normalized_modifications))
+        self.logger.error(f"people_string: {people_string}")
+        self.logger.error(f"modification_string: {modification_string}")
+        return f"Modifications by {people_string}: {modification_string}"
+
     def _make_report(self, place_json: dict, nature: str = "new") -> PleiadesReport:
         """
         Create a Pleiades report about a new Pleiades place resource
@@ -172,6 +252,20 @@ class PleiadesRSSReporter(Reporter, RSSReporter):
         names.update(title_names)
         names = sorted(list(names))
 
+        # determine when
+        first_pub_date, latest_mod_date = self._get_event_dates(place_json)
+        if nature == "new":
+            when = first_pub_date
+        else:
+            when = latest_mod_date
+
+        # construct the body
+        extra = ""
+        if nature == "updated":
+            extra = self._get_modification_summary(place_json, when)
+            if extra:
+                extra = f"  \n\n{extra}"
+
         md = (
             place_json["description"]
             + (".", "")[place_json["description"][-1] == "."]
@@ -182,14 +276,8 @@ class PleiadesRSSReporter(Reporter, RSSReporter):
             + f"Canonical URI: https://pleiades.stoa.org/places/{place_json['id']}"
             + "  \n\nNames: "
             + ", ".join(names)
+            + extra
         )
-
-        # determine when
-        first_pub_date, latest_mod_date = self._get_event_dates(place_json)
-        if nature == "new":
-            when = first_pub_date
-        else:
-            when = latest_mod_date
 
         report = PleiadesReport(
             title=f"{nature.title()} place resource in the Pleiades gazetteer: {place_json['title']}",
