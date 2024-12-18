@@ -172,4 +172,4 @@ class BetterRSSHandler:
         return new_entries
 
     def _hash_entry(self, entry) -> int:
-        return "::".join((entry.id, entry.updated))
+        return hash("::".join((entry.id, entry.updated)))
