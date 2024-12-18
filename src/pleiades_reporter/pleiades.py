@@ -316,9 +316,10 @@ class PleiadesRSSReporter(Reporter, RSSReporter):
         names = set()
         for nrec in place_json["names"]:
             names.update({norm(n) for n in nrec["romanized"].split(",")})
-            attested = norm(nrec["attested"])
-            if attested:
-                names.add(attested)
+            if nrec["attested"] is not None:
+                attested = norm(nrec["attested"])
+                if attested:
+                    names.add(attested)
         names.update(title_names)
         names = sorted(list(names))
 
@@ -335,10 +336,12 @@ class PleiadesRSSReporter(Reporter, RSSReporter):
             extra = self._get_modification_summary(place_json, when)
             if extra:
                 extra = f"  \n\n{extra}"
-
+        description = place_json["description"].strip()
+        if not description:
+            description = "[no description]"
         md = (
-            place_json["description"]
-            + (".", "")[place_json["description"][-1] == "."]
+            description
+            + (".", "")[description[-1] == "."]
             + "  \n\n"
             + f"Resource created by {creators}"
             + (".", f" with contributions by {contributors}.")[len(contributors) > 0]

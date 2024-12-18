@@ -128,6 +128,7 @@ def main(**kwargs):
     # logger = logging.getLogger(sys._getframe().f_code.co_name)
     channels = {
         "@pleiades@botsinbox.net": GoToSocialChannel(
+            name="@pleiades@botsinbox.net",
             access_token=environ["BOTSINBOX_ACCESS_TOKEN"],
             api_base_url="https://botsinbox.net",
         )
@@ -154,7 +155,7 @@ def main(**kwargs):
     periods = {
         "pleiades-blog": 3593,  # a prime close to every hour
         "pleiades-new-places": 3607,  # a prime close to every hour
-        "@pleiades@botsinbox.net": 1801,  # prime closest to every 30 minutes
+        "@pleiades@botsinbox.net": 1019,  # prime closest to every 17 minutes
         "zotero-new-items": 3613,  # a prime close to every hour
     }  # in seconds
     dawn_of_time = datetime(year=1970, month=1, day=1, tzinfo=pytz.utc)

@@ -10,14 +10,18 @@ Implement a class for interacting with a GoToSocial instance
 """
 from logging import getLogger
 from mastodon import Mastodon
+from pathlib import Path
+from platformdirs import user_cache_dir
 from pleiades_reporter.channel import Channel
 from pprint import pformat
 
+CACHE_DIR_PATH = Path(user_cache_dir("pleiades_reporter"))
+
 
 class GoToSocialChannel(Channel):
-    def __init__(self, access_token, api_base_url, **kwargs):
+    def __init__(self, name, access_token, api_base_url, **kwargs):
         self.logger = getLogger("GoToSocialChannel")
-        Channel.__init__(self)
+        Channel.__init__(self, name=name, cache_dir_path=CACHE_DIR_PATH)
         self.api = Mastodon(
             access_token=access_token,
             api_base_url=api_base_url,
