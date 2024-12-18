@@ -15,7 +15,10 @@ import json
 from pathlib import Path
 from pleiades_reporter.reporter import ReporterWebWait
 import pytz
+from requests import Response
 from time import struct_time
+from validators import url as valid_url
+from webiquette.webi import Webi
 
 
 class JSONDecoderSeen(json.JSONDecoder):
@@ -122,3 +125,38 @@ class RSSReporter:
         ) as f:
             json.dump(recently_seen, f, cls=JSONEncoderSeen)
         del f
+
+
+class BetterRSSHandler:
+
+    def __init__(self):
+        self._rss_last_fetch = datetime(
+            year=1970, month=1, day=1, hour=1, minute=11, second=0, tzinfo=pytz.utc
+        )
+
+    def _fetch(self, feed_url: str, web_interface: Webi, filter=True):
+        """
+        If the feed has changed on the server, fetch it anew (bypass local web caching)
+        """
+        additional_headers = {"If-modified-since": self._rss_last_fetch.isoformat()}
+        r = web_interface.get(
+            feed_url, additional_headers=additional_headers, bypass_cache=True
+        )
+        if r.status_code == 304:
+            # server says "no modification"
+            return list()
+        elif r.status_code == 200:
+            feed_data = feedparser.parse(r.text)
+            entries = feed_data.entries
+            if filter:
+                return self._filter_feed_entries(entries)
+            else:
+                return entries
+        else:
+            r.raise_for_status()
+
+    def _filter_feed_entries(self, entries: list) -> list:
+        """
+        Return a list of feed entries that we haven't seen before
+        """
+        raise NotImplementedError()

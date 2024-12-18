@@ -15,7 +15,7 @@ from pathlib import Path
 from platformdirs import user_cache_dir
 from pleiades_reporter.atom import AtomReporter
 from pleiades_reporter.report import PleiadesReport
-from pleiades_reporter.rss import RSSReporter
+from pleiades_reporter.rss import RSSReporter, BetterRSSReporter
 from pleiades_reporter.reporter import Reporter
 from pleiades_reporter.text import norm, comma_separated_list
 from pprint import pformat
@@ -480,3 +480,6 @@ class PleiadesBlogReporter(Reporter, AtomReporter):
         report = self._add_body_to_report(report)
         report = self._add_tags_to_report(report)
         return report
+
+
+class PleiadesChangedItemsReporter()
