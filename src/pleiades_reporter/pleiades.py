@@ -43,7 +43,7 @@ class PleiadesRSSReporter(Reporter, RSSReporter):
             cache_control=False,
             cache_dir_path=CACHE_DIR_PATH,
         )
-        RSSReporter.__init__(self)
+        RSSReporter.__init__(self, cache_dir_path=CACHE_DIR_PATH)
         self.logger = getLogger(f"pleiades.PleiadesRSSReporter({name})")
         self.rxx_who = [
             re.compile(r" by @(?P<who>[a-zA-Z]+)"),
@@ -407,7 +407,7 @@ class PleiadesBlogReporter(Reporter, AtomReporter):
             cache_control=False,
             cache_dir_path=CACHE_DIR_PATH,
         )
-        RSSReporter.__init__(self)
+        RSSReporter.__init__(self, cache_dir_path=CACHE_DIR_PATH)
         self.logger = getLogger(f"pleiades.PleiadesBlogReporter({name})")
 
     def check(self):
