@@ -130,9 +130,13 @@ class RSSReporter:
 class BetterRSSHandler:
 
     def __init__(self):
+        self.reset()
+
+    def reset(self):
         self._rss_last_fetch = datetime(
             year=1970, month=1, day=1, hour=1, minute=11, second=0, tzinfo=pytz.utc
         )
+        self._rss_seen_hashes = set()
 
     def _fetch(self, feed_url: str, web_interface: Webi, filter=True):
         """
@@ -159,4 +163,13 @@ class BetterRSSHandler:
         """
         Return a list of feed entries that we haven't seen before
         """
-        raise NotImplementedError()
+        hashed_entries = {self._hash_entry(e): e for e in entries}
+        these_hashes = set(hashed_entries.keys())
+        new_entries = [
+            hashed_entries[h] for h in these_hashes.difference(self._rss_seen_hashes)
+        ]
+        self._rss_seen_hashes.update(these_hashes)
+        return new_entries
+
+    def _hash_entry(self, entry) -> int:
+        return "::".join((entry.id, entry.updated))
