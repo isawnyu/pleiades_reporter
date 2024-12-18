@@ -120,9 +120,19 @@ class PleiadesRSSReporter(Reporter, RSSReporter):
             self.logger.debug(
                 f"DETERMINATION: pid:{pj['id']} published:{published_dt.isoformat()} modified:{modified_dt.isoformat()}"
             )
-            if pleiades_first_pub_dates[i] >= self.last_check:
+            if pleiades_first_pub_dates[i] >= datetime(
+                year=self.last_check.year,
+                month=self.last_check.month,
+                day=self.last_check.day,
+                tzinfo=pytz.utc,
+            ):
                 new_places.append(pj)
-            elif pleiades_latest_modification_dates[i] >= self.last_check:
+            elif pleiades_latest_modification_dates[i] >= datetime(
+                year=self.last_check.year,
+                month=self.last_check.month,
+                day=self.last_check.day,
+                tzinfo=pytz.utc,
+            ):
                 updated_places.append(pj)
         self.logger.debug(f"New places: {len(new_places)}")
         self.logger.debug(f"Updated places: {len(updated_places)}")

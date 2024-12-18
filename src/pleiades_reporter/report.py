@@ -106,9 +106,18 @@ class PleiadesReport:
     @when.setter
     def when(self, dt: datetime | str):
         if isinstance(dt, datetime):
+            if dt.tzinfo is None:
+                raise RuntimeError("naive datetime")
             self._when = dt
         elif isinstance(dt, str):
             self._when = datetime.fromisoformat(dt)
+            if self._when.tzinfo is None:
+                self._when = datetime(
+                    year=self._when.year,
+                    month=self._when.month,
+                    day=self._when.day,
+                    tzinfo=pytz.utc,
+                )
         else:
             raise TypeError(f"Expected datetime or str, got {type(dt)}")
 

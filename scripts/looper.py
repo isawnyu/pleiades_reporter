@@ -22,6 +22,7 @@ from pleiades_reporter.post import Post
 from pleiades_reporter.zotero import ZoteroReporter
 from pleiades_reporter.text import norm
 from pprint import pformat
+import pytz
 from time import sleep
 
 logger = logging.getLogger(__name__)
@@ -156,7 +157,7 @@ def main(**kwargs):
         "@pleiades@botsinbox.net": 1801,  # prime closest to every 30 minutes
         "zotero-new-items": 3613,  # a prime close to every hour
     }  # in seconds
-    dawn_of_time = datetime(year=1970, month=1, day=1)
+    dawn_of_time = datetime(year=1970, month=1, day=1, tzinfo=pytz.utc)
     last_execution = dict()
     for k in list(set(reporters.keys()).union(set(channels.keys()))):
         last_execution[k] = dawn_of_time
@@ -166,14 +167,19 @@ def main(**kwargs):
     while True:
         try:
             for r_key, reporter in reporters.items():
-                if datetime.now() - last_execution[r_key] > timedelta(
+                if datetime.now(tz=pytz.utc) - last_execution[r_key] > timedelta(
                     seconds=periods[r_key]
                 ):
                     logger.info(f"Checking reporter '{r_key}'")
                     reports.extend([r for r in reporter.check() if r is not None])
-                    last_execution[r_key] = datetime.now()
+                    last_execution[r_key] = datetime.now(tz=pytz.utc)
             if len(reports) > report_count:
                 print(f"{len(reports) - report_count} new reports have been generated:")
+                for r in reports[report_count : len(reports)]:
+                    if r.when.tzinfo is None:
+                        logger.error(
+                            f"Naive datetime for when on report: {pformat(r, indent=4)}"
+                        )
                 new_reports = sorted(
                     reports[report_count : len(reports)],
                     key=lambda r: r.when,
@@ -188,14 +194,14 @@ def main(**kwargs):
                 while another_cmd:
                     another_cmd = get_user_disposition(new_reports, channels)
             for c_key, channel in channels.items():
-                if datetime.now() - last_execution[c_key] > timedelta(
+                if datetime.now(tz=pytz.utc) - last_execution[c_key] > timedelta(
                     seconds=periods[c_key]
                 ):
                     logger.info(f"Posting from queue in channel '{c_key}'")
                     channel.post_next()
-                    last_execution[c_key] = datetime.now()
+                    last_execution[c_key] = datetime.now(tz=pytz.utc)
             logger.info(
-                f"Sleeping for {LOOP_PERIOD} seconds (i.e., until {(datetime.now() + timedelta(seconds=LOOP_PERIOD)).strftime(DEFAULT_DATETIME_FORMAT)})"
+                f"Sleeping for {LOOP_PERIOD} seconds (i.e., until {(datetime.now(tz=pytz.utc) + timedelta(seconds=LOOP_PERIOD)).strftime(DEFAULT_DATETIME_FORMAT)})"
             )
             sleep(LOOP_PERIOD)
         except KeyboardInterrupt:
