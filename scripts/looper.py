@@ -79,12 +79,15 @@ def get_user_disposition(new_reports: list, channels: dict) -> bool:
     cmd_lower = cmd.lower()
     if cmd_lower in ["q", "quit", "exit"]:
         exit()
-    if cmd_lower.startswith("preview "):
+    if cmd_lower in ["h", "help"]:
+        print_menu()
+        return True
+    elif cmd_lower.startswith("preview "):
         return preview_reports(" ".join(cmd_lower.split()[1:]), new_reports, channels)
     elif cmd_lower.startswith("publish ") or cmd_lower.startswith("post "):
         return publish_reports(" ".join(cmd_lower.split()[1:]), new_reports, channels)
     else:
-        print("Invalid command.")
+        print("Invalid command (press 'h' for help)")
         return True
 
 
@@ -118,6 +121,19 @@ def publish_reports(predicate: str, new_reports: list, channels: dict) -> bool:
     for channel in channels.values():
         channel.enqueue(posts)
     return False
+
+
+def print_menu():
+    menu = {
+        "exit": "see 'quit'",
+        "(h)elp": "show this menu",
+        "post [range string]": "queue the indicated posts from the review list for dissemination",
+        "preview [range string]": "show post text for indicated posts in the review list",
+        "(q)uit": "quit the program",
+        "Ctrl-C": "show this menu while program is sleeping",
+    }
+    for c, d in menu.items():
+        print(f"{c}: {d}")
 
 
 def main(**kwargs):
@@ -206,7 +222,10 @@ def main(**kwargs):
             )
             sleep(LOOP_PERIOD)
         except KeyboardInterrupt:
-            break
+            print_menu()
+            another_cmd = True
+            while another_cmd:
+                another_cmd = get_user_disposition([], channels)
 
 
 if __name__ == "__main__":
