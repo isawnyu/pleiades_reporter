@@ -63,6 +63,16 @@ class TestPleiadesChangesReporter:
         result = self.r.check()
         assert isinstance(result, list)
 
+    def test_filter_histories(self):
+        pjson = self.r._get_place_json("http://pleiades.stoa.org/places/471134383")
+        histories = self.r._get_histories(pjson)
+        filtered_histories = self.r._filter_histories(histories, "2024-12-01T05:10:15Z")
+        import logging
+        from pprint import pformat
+
+        logger = logging.getLogger("test_filter_histories")
+        logger.error(pformat(filtered_histories))
+
     def test_get_histories(self):
         pjson = self.r._get_place_json("http://pleiades.stoa.org/places/471134383")
         histories = self.r._get_histories(pjson)

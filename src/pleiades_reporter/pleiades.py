@@ -8,13 +8,15 @@
 """
 Subclass AtomReporter to deal with Pleiades AtomFeeds
 """
-from datetime import datetime, timedelta
+from copy import deepcopy
+from datetime import datetime, timedelta, date
 from feedparser.util import FeedParserDict
 import json
 from logging import getLogger
 from pathlib import Path
 from platformdirs import user_cache_dir
 from pleiades_reporter.atom import AtomReporter
+from pleiades_reporter.dates import iso2date
 from pleiades_reporter.report import PleiadesReport
 from pleiades_reporter.rss import RSSReporter, BetterRSSHandler
 from pleiades_reporter.reporter import Reporter
@@ -521,7 +523,6 @@ class PleiadesChangesReporter(Reporter, BetterRSSHandler):
         if not new_dated_entries:
             return list()
 
-        places_json = [self._get_place_json(e.guid) for e, dt_iso in new_dated_entries]
         new_reports = [
             self._make_report(e, dt_iso, self._get_place_json(e.guid))
             for e, dt_iso in new_dated_entries
@@ -539,6 +540,101 @@ class PleiadesChangesReporter(Reporter, BetterRSSHandler):
         Write critical info to the local cache
         """
         pass
+
+    def _filter_histories(self, histories: dict, dt_iso: str) -> dict:
+        """
+        Return a dictionary like the one returned by _get_histories, but only with
+        object histories that span the date in dt_iso
+        """
+        recent_histories = dict()
+        horizon = iso2date(dt_iso)
+        for k, v in histories.items():
+            if k == "place":
+                h = self._filter_history(v, horizon)
+                if h:
+                    recent_histories["place"] = h
+            else:
+                for obj_id, obj_h in v:
+                    h = self._filter_history(obj_h, horizon)
+                    if h:
+                        try:
+                            recent_histories[k]
+                        except KeyError:
+                            recent_histories[k] = list()
+                        recent_histories[k].append((obj_id, h))
+        return recent_histories
+
+    def _filter_history(self, history: list, horizon: date) -> list:
+        """
+        Filter a history list down to strings of publication/checkin since horizon, including
+        their antecedents
+        """
+        normed_history = self._normalize_history(history)
+        sorted_history = sorted(
+            normed_history, key=lambda item: item["date"], reverse=True
+        )
+        self.logger.debug(f"horizon: {horizon}")
+        self.logger.debug(f"normed_history: {pformat(normed_history, indent=4)}")
+        self.logger.debug(f"sorted_history: {pformat(sorted_history, indent=4)}")
+
+        horizon_index = len([e for e in sorted_history if e["date"] >= horizon]) - 1
+        if horizon_index == -1:
+            # nothing happened in the relevant time frame
+            return list()
+        self.logger.debug(f"horizon_index: {horizon_index}")
+
+        for i, e in enumerate(sorted_history[: horizon_index + 1]):
+            if e["status"] == "Publish externally":
+                break
+        if i >= 0 and i <= horizon_index:
+            # this is a newly-published item, possibly with (irrelevant) quick fixes thereafter
+            return [sorted_history[i]]
+
+        for i, e in enumerate(sorted_history):
+            if e["status"] in {"Publish externally", "Baseline created"}:
+                break
+        return sorted_history[:i]
+
+    def _make_report(
+        self, entry: FeedParserDict, dt_iso: str, pleiades_json: dict
+    ) -> PleiadesReport:
+        # get histories from relevant place and sub-objects
+        histories = self._get_histories(pleiades_json)
+        # filter objects to consider only those whose histories include events since the cutoff
+        histories = self._filter_histories(histories, dt_iso)
+        # parse relevant histories to produce summaries for each object
+        # combine object summaries to make an overall summary for the report
+        # construct and return the report
+        return None
+
+    def _normalize_history(self, history: list) -> list:
+        """
+        process an event list:
+        - assign UTC dates to each event
+        - normalize 'comment' and 'action' into 'status'
+        """
+        normed_history = list()
+        for event in history:
+            normed_history.append(self._normalize_event(event))
+        return normed_history
+
+    def _normalize_event(self, event: dict) -> dict:
+        """
+        Add a python date and a status string to the event
+        """
+        e = deepcopy(event)
+        e["date"] = iso2date(event["modified"])
+        status = ""
+        try:
+            status = event["comment"]
+        except KeyError:
+            pass
+        try:
+            status = event["action"]
+        except KeyError:
+            pass
+        e["status"] = status
+        return e
 
     def _get_histories(self, pleiades_json: dict) -> dict:
         """
@@ -565,14 +661,3 @@ class PleiadesChangesReporter(Reporter, BetterRSSHandler):
             return r.json()
         else:
             r.raise_for_status()
-
-    def _make_report(
-        self, entry: FeedParserDict, dt_iso: str, pleiades_json: dict
-    ) -> PleiadesReport:
-        # get histories from relevant place and sub-objects
-        # filter objects to consider only those whose histories include events since the cutoff
-        # parse relevant histories to produce summaries for each object
-        # combine object summaries to make an overall summary for the report
-        # construct and return the report
-        histories = self._get_histories(pleiades_json)
-        return None
