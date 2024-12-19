@@ -25,7 +25,9 @@ feed_url = (
 class TestBetterRSSHander:
     @classmethod
     def setup_class(cls):
-        cls.h = BetterRSSHandler()
+        cls.h = BetterRSSHandler(
+            cache_path=test_cache_dir, name="test_better_rss_handler"
+        )
         test_cache_dir.mkdir(parents=True, exist_ok=True)
         cls.w = Webi(
             netloc="pleiades.stoa.org",
@@ -45,22 +47,26 @@ class TestBetterRSSHander:
         shutil.rmtree(test_cache_dir)
 
     def test_fetch_nofilter(self):
-        entries = self.h._fetch(feed_url=feed_url, web_interface=self.w, filter=False)
+        dated_entries = self.h._fetch(
+            feed_url=feed_url, web_interface=self.w, filter=False
+        )
         # logger = logging.getLogger(
         #     "::".join((Path(__file__).name, "TestBetterRSSHandler", "test_fetch"))
         # )
-        assert isinstance(entries, list)
+        assert isinstance(dated_entries, list)
 
     def test_fetch_filtered(self):
-        entries = self.h._fetch(feed_url=feed_url, web_interface=self.w, filter=False)
-        orig_len = len(entries)
-        if orig_len > 0:
-            self.h.reset()
-            self.h._rss_seen_hashes = {self.h._hash_entry(e) for e in entries[1:]}
-        sought_hashes = (self.h._hash_entry(entries[0]), self.h._hash_entry(entries[1]))
-        new_entries = self.h._fetch(
-            feed_url=feed_url, web_interface=self.w, filter=True
+        dated_entries = self.h._fetch(
+            feed_url=feed_url, web_interface=self.w, filter=False
         )
-        new_hashes = {self.h._hash_entry(e) for e in new_entries}
-        assert sought_hashes[0] in new_hashes
-        assert sought_hashes[1] not in new_hashes
+        orig_len = len(dated_entries)
+        if orig_len > 1:
+            self.h.reset()
+            self.h._rss_seen = {e.guid: dt_iso for e, dt_iso in dated_entries[1:]}
+            sought_guids = [e.guid for e, dt_iso in dated_entries[0:2]]
+            new_entries = self.h._fetch(
+                feed_url=feed_url, web_interface=self.w, filter=True
+            )
+            new_guids = {e.guid for e, dt_iso in new_entries}
+            assert sought_guids[0] in new_guids
+            assert sought_guids[1] not in new_guids
