@@ -569,31 +569,37 @@ class PleiadesChangesReporter(Reporter, BetterRSSHandler):
         Filter a history list down to strings of publication/checkin since horizon, including
         their antecedents
         """
+        self.logger.debug("foo 1")
         normed_history = self._normalize_history(history)
         sorted_history = sorted(
             normed_history, key=lambda item: item["date"], reverse=True
         )
-        self.logger.debug(f"horizon: {horizon}")
-        self.logger.debug(f"normed_history: {pformat(normed_history, indent=4)}")
-        self.logger.debug(f"sorted_history: {pformat(sorted_history, indent=4)}")
+        # self.logger.debug(f"horizon: {horizon}")
+        # self.logger.debug(f"normed_history: {pformat(normed_history, indent=4)}")
+        # self.logger.debug(f"sorted_history: {pformat(sorted_history, indent=4)}")
 
         horizon_index = len([e for e in sorted_history if e["date"] >= horizon]) - 1
         if horizon_index == -1:
             # nothing happened in the relevant time frame
             return list()
-        self.logger.debug(f"horizon_index: {horizon_index}")
+        # self.logger.debug(f"horizon_index: {horizon_index}")
+        self.logger.debug("foo 2")
 
         for i, e in enumerate(sorted_history[: horizon_index + 1]):
             if e["status"] == "Publish externally":
                 break
-        if i >= 0 and i <= horizon_index:
+        if e["status"] == "Publish externally":
             # this is a newly-published item, possibly with (irrelevant) quick fixes thereafter
-            return [sorted_history[i]]
+            return [e]
+        self.logger.debug("foo 3")
 
         for i, e in enumerate(sorted_history):
             if e["status"] in {"Publish externally", "Baseline created"}:
                 break
-        return sorted_history[:i]
+        if e["status"] == "Publish externally":
+            return sorted_history[0:i]
+        elif e["status"] == "Baseline created":
+            return sorted_history[0 : i + 1]
 
     def _make_report(
         self, entry: FeedParserDict, dt_iso: str, pleiades_json: dict
