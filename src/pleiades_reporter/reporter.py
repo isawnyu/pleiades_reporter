@@ -72,8 +72,13 @@ class Reporter:
         """
         Read critical info from this Reporter's local cache
         """
+        cache_file_path = (
+            self.cache_dir_path / f"{self.name.replace('-', '_')}_metadata.json"
+        )
+        if not cache_file_path.exists():
+            self._cache_write()
         with open(
-            self.cache_dir_path / f"{self.name.replace('-', '_')}_metadata.json",
+            self.cache_dir_path / cache_file_path,
             "r",
             encoding="utf-8",
         ) as f:
@@ -85,11 +90,11 @@ class Reporter:
         """
         Write critical data to this Reporter's local cache
         """
-        with open(
-            self.cache_dir_path / f"{self.name.replace('-', '_')}_metadata.json",
-            "w",
-            encoding="utf-8",
-        ) as f:
+        self.cache_dir_path.mkdir(parents=True, exist_ok=True)
+        cache_file_path = (
+            self.cache_dir_path / f"{self.name.replace('-', '_')}_metadata.json"
+        )
+        with open(cache_file_path, "w", encoding="utf-8") as f:
             json.dump(data_to_cache, f)
         del f
 

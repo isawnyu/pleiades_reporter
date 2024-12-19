@@ -15,7 +15,7 @@ from pathlib import Path
 from platformdirs import user_cache_dir
 from pleiades_reporter.atom import AtomReporter
 from pleiades_reporter.report import PleiadesReport
-from pleiades_reporter.rss import RSSReporter, BetterRSSReporter
+from pleiades_reporter.rss import RSSReporter, BetterRSSHandler
 from pleiades_reporter.reporter import Reporter
 from pleiades_reporter.text import norm, comma_separated_list
 from pprint import pformat
@@ -482,4 +482,50 @@ class PleiadesBlogReporter(Reporter, AtomReporter):
         return report
 
 
-class PleiadesChangedItemsReporter()
+class PleiadesChangesReporter(Reporter, BetterRSSHandler):
+    def __init__(
+        self,
+        name: str,
+        api_base_uri: str,
+        user_agent: str,
+        from_header: str,
+        cache_dir_path=CACHE_DIR_PATH,
+    ):
+        headers = HEADERS
+        headers["User-Agent"] = user_agent
+        headers["From"] = from_header
+        Reporter.__init__(
+            self,
+            name=name,
+            api_base_uri=api_base_uri,
+            headers=headers,
+            respect_robots_txt=False,
+            expire_after=timedelta(minutes=WEB_CACHE_DURATION),
+            cache_control=False,
+            cache_dir_path=cache_dir_path,
+        )
+        BetterRSSHandler.__init__(self, cache_path=cache_dir_path)
+        self.feed_url = api_base_uri
+
+    def check(self) -> list:
+        """
+        Check for new Pleiades records since last check and return a list of reports
+        """
+        new_dated_entries = self._fetch(
+            feed_url=self.feed_url, web_interface=self._webi, filter=True
+        )
+        if not new_dated_entries:
+            return list()
+        return [item[0] for item in new_dated_entries]
+
+    def _cache_read(self):
+        """
+        Read critical info from the local cache
+        """
+        pass
+
+    def _cache_write(self):
+        """
+        Write critical info to the local cache
+        """
+        pass
