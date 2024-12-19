@@ -62,3 +62,9 @@ class TestPleiadesChangesReporter:
     def test_check(self):
         result = self.r.check()
         assert isinstance(result, list)
+
+    def test_get_place_json(self):
+        result = self.r._get_place_json(
+            "http://pleiades.stoa.org/places/471134383/location-of-roman-amphitheater"
+        )
+        assert result["id"] == "471134383"

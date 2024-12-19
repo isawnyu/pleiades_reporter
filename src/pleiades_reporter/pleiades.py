@@ -9,6 +9,7 @@
 Subclass AtomReporter to deal with Pleiades AtomFeeds
 """
 from datetime import datetime, timedelta
+from feedparser.util import FeedParserDict
 import json
 from logging import getLogger
 from pathlib import Path
@@ -21,6 +22,7 @@ from pleiades_reporter.text import norm, comma_separated_list
 from pprint import pformat
 import pytz
 import re
+from urllib.parse import urlparse, urlunparse
 
 CACHE_DIR_PATH = Path(user_cache_dir("pleiades_reporter"))
 
@@ -506,6 +508,8 @@ class PleiadesChangesReporter(Reporter, BetterRSSHandler):
         )
         BetterRSSHandler.__init__(self, cache_path=cache_dir_path)
         self.feed_url = api_base_uri
+        self.place_base_uri = "https://pleiades.stoa.org/places/"
+        self.logger = getLogger(f"PleiadesChangesReporter::{name}")
 
     def check(self) -> list:
         """
@@ -516,7 +520,13 @@ class PleiadesChangesReporter(Reporter, BetterRSSHandler):
         )
         if not new_dated_entries:
             return list()
-        return [item[0] for item in new_dated_entries]
+
+        places_json = [self._get_place_json(e.guid) for e, dt_iso in new_dated_entries]
+        new_reports = [
+            self._make_report(e, dt_iso, self._get_place_json(e.guid))
+            for e, dt_iso in new_dated_entries
+        ]
+        return new_reports
 
     def _cache_read(self):
         """
@@ -529,3 +539,23 @@ class PleiadesChangesReporter(Reporter, BetterRSSHandler):
         Write critical info to the local cache
         """
         pass
+
+    def _get_place_json(self, obj_url: str) -> dict:
+        parts = urlparse(obj_url)
+        m = re.match(r"^/places/(\d+).*$", parts.path)
+        if m is None:
+            raise ValueError(obj_url)
+        pid = m.group(1)
+        new_path = f"/places/{pid}/json"
+        new_parts = (parts.scheme, parts.netloc, new_path, "", "", "")
+        new_url = urlunparse(new_parts)
+        r = self._webi.get(new_url)
+        if r.status_code == 200:
+            return r.json()
+        else:
+            r.raise_for_status()
+
+    def _make_report(
+        self, entry: FeedParserDict, dt_iso: str, pleiades_json: dict
+    ) -> PleiadesReport:
+        return None
