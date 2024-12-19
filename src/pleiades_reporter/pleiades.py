@@ -540,6 +540,17 @@ class PleiadesChangesReporter(Reporter, BetterRSSHandler):
         """
         pass
 
+    def _get_histories(self, pleiades_json: dict) -> dict:
+        """
+        Return a dictionary containing all the histories of all objects in this place object
+        """
+        histories = {"place": pleiades_json["history"]}
+        for k in ["locations", "names", "connections"]:
+            histories[k] = list()
+            for obj in pleiades_json[k]:
+                histories[k].append((obj["id"], obj["history"]))
+        return histories
+
     def _get_place_json(self, obj_url: str) -> dict:
         parts = urlparse(obj_url)
         m = re.match(r"^/places/(\d+).*$", parts.path)
@@ -558,4 +569,10 @@ class PleiadesChangesReporter(Reporter, BetterRSSHandler):
     def _make_report(
         self, entry: FeedParserDict, dt_iso: str, pleiades_json: dict
     ) -> PleiadesReport:
+        # get histories from relevant place and sub-objects
+        # filter objects to consider only those whose histories include events since the cutoff
+        # parse relevant histories to produce summaries for each object
+        # combine object summaries to make an overall summary for the report
+        # construct and return the report
+        histories = self._get_histories(pleiades_json)
         return None

@@ -63,8 +63,16 @@ class TestPleiadesChangesReporter:
         result = self.r.check()
         assert isinstance(result, list)
 
+    def test_get_histories(self):
+        pjson = self.r._get_place_json("http://pleiades.stoa.org/places/471134383")
+        histories = self.r._get_histories(pjson)
+        keys = {"place", "locations", "names", "connections"}
+        assert set(histories.keys()) == {"place", "locations", "names", "connections"}
+        for k in keys:
+            assert isinstance(histories[k], list)
+            if k in {"locations", "connections"}:
+                assert len(histories[k]) > 0
+
     def test_get_place_json(self):
-        result = self.r._get_place_json(
-            "http://pleiades.stoa.org/places/471134383/location-of-roman-amphitheater"
-        )
+        result = self.r._get_place_json("http://pleiades.stoa.org/places/471134383")
         assert result["id"] == "471134383"
